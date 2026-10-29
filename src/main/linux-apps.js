@@ -7,7 +7,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execFile } = require('node:child_process');
+const { execFile, spawn } = require('node:child_process');
 const hyprland = require('./hyprland');
 
 const ENTRY_DIRS = [
@@ -121,8 +121,18 @@ function media(action) {
   return cmd ? run(...cmd) : Promise.resolve(false);
 }
 
-// an app from its desktop entry, as the desktop would start it
-const launchEntry = (file) => run('gio', ['launch', file]);
+// An app from its desktop entry, as the desktop would start it, and let go at once: left on her
+// pipes, a GTK or Qt app would die of the first thing it prints once they're closed.
+function launchEntry(file) {
+  return new Promise((resolve) => {
+    const child = spawn('gio', ['launch', file], { detached: true, stdio: 'ignore' });
+    child.on('error', () => resolve(false));
+    child.on('spawn', () => {
+      child.unref();
+      resolve(true);
+    });
+  });
+}
 
 // A picture of the screens: PNG, or JPEG (`quality`) `scale` times the size. Rejects where grim
 // can't (a desktop that isn't wlroots-like): the caller falls back on Electron's way.

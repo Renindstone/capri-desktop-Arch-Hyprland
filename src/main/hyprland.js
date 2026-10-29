@@ -64,17 +64,24 @@ const quiet = (err) => console.error('[capri]', err.message);
 function overlay(area) {
   let address = null;
   let interactive = false; // the pointer is on her (app.js)
-  let typing = false;      // her chat has the keyboard
   let gaveBack = null;     // the window that had the keyboard before her chat took it
 
   const rule = () => lua(`hl.window_rule({ name = "capri-overlay", match = { class = "^capri-desktop$", title = "^Capri$" }, float = true, pin = true, no_focus = true, no_initial_focus = true, move = "${area.x} ${area.y}", size = "${area.width} ${area.height}", border_size = 0, no_shadow = true, no_blur = true, no_dim = true, rounding = 0, opacity = "1 override", no_anim = true })`);
   const dispatch = (dsp) => address && lua(`hl.dispatch(${dsp})`).catch(quiet);
-  const update = () => dispatch(`hl.dsp.window.set_prop({ window = "address:${address}", prop = "no_focus", value = "${interactive || typing ? 0 : 1}" })`);
+  const update = () => dispatch(`hl.dsp.window.set_prop({ window = "address:${address}", prop = "no_focus", value = "${interactive ? 0 : 1}" })`);
+  const giveBack = () => {
+    if (gaveBack) dispatch(`hl.dsp.focus({ window = "address:${gaveBack}" })`);
+    gaveBack = null;
+  };
 
-  const ready = rule().catch(quiet);
-  // reloading the config drops the rules added on the fly: hers again, and her window set again
+  // refused (a Hyprland that names things otherwise): her window would open tiled, taking every
+  // click, so main.js doesn't show it at all
+  const ready = rule();
+  ready.catch(quiet);
+  // reloading the config drops the rules added on the fly: hers again, and her window let through
+  // again whatever became of the rule
   const events = listen((name) => {
-    if (name === 'configreloaded') rule().then(update, quiet);
+    if (name === 'configreloaded') rule().catch(quiet).then(update);
   });
 
   return {
@@ -87,25 +94,28 @@ function overlay(area) {
         else await new Promise((r) => setTimeout(r, 100));
       }
       if (!address) console.error('[capri] hyprland: her window never showed up');
-      update();
+      return update();
     },
     interactive(on) {
       interactive = on;
-      update();
+      return update();
     },
-    // Wayland doesn't let a window take the keyboard: Hyprland hands it over, and back after
+    // Wayland doesn't let a window take the keyboard: Hyprland hands it over (her window focusable
+    // for that moment), and back after. The keyboard stays with her once her window lets the
+    // pointer through again, so her chat open doesn't take every click.
     async focus(on) {
-      typing = on;
-      if (on) {
-        const before = await json('activewindow').catch(() => null);
-        gaveBack = before?.address && before.address !== address ? before.address : null;
-        await update();
-        dispatch(`hl.dsp.focus({ window = "address:${address}" })`);
-        return;
-      }
-      await update();
-      if (gaveBack) dispatch(`hl.dsp.focus({ window = "address:${gaveBack}" })`);
-      gaveBack = null;
+      if (!on) return giveBack();
+      const before = await json('activewindow').catch(() => null);
+      gaveBack = before?.address && before.address !== address ? before.address : null;
+      await dispatch(`hl.dsp.window.set_prop({ window = "address:${address}", prop = "no_focus", value = "0" })`);
+      await dispatch(`hl.dsp.focus({ window = "address:${address}" })`);
+      return update();
+    },
+    // her page reloaded, gone or stuck: nothing will say the pointer left her, so it goes through
+    release() {
+      interactive = false;
+      giveBack();
+      return update();
     },
     // where the pointer is, in the layout's coordinates (logical pixels, like Electron's)
     cursor: () => json('cursorpos'),

@@ -219,14 +219,31 @@ function createOverlay() {
   // always shown: put away, she's still there as her biochip in the corner. Sized again first:
   // Windows keeps a new window inside the work area, and resting on the taskbar it covers it too.
   overlay.once('ready-to-show', async () => {
-    await hypr?.ready; // Hyprland's rule for her window, in before it opens
+    // Hyprland's rule for her window, in before it opens. Refused, her window would open tiled and
+    // take every click: she stays in her tray icon instead.
+    try {
+      await hypr?.ready;
+    } catch (err) {
+      console.error('[capri] hyprland refused her window rule, so her window stays hidden:', err.message);
+      return;
+    }
     fitOverlay();
     overlay.showInactive();
     hypr?.attach();
   });
+  // her page gone, reloading or stuck: nothing will tell her window the pointer left her, so it
+  // lets the pointer through again (in Hyprland her window covers the whole screen)
+  const release = () => {
+    if (overlay.isDestroyed()) return;
+    overlay.setIgnoreMouseEvents(true, { forward: true });
+    hypr?.release();
+  };
   overlay.webContents.on('render-process-gone', (_e, details) => {
     console.error('[capri] renderer gone:', details.reason);
+    release();
   });
+  overlay.webContents.on('did-start-loading', release);
+  overlay.on('unresponsive', release);
   if (DEV) {
     overlay.webContents.on('console-message', (e) => {
       const { level, message, lineNumber, sourceId } = e;

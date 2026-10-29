@@ -50,3 +50,19 @@ test('open apps from the windows: one per class, named from its entry, never her
     ['com.github.th-ch.youtube-music', 'Pear Desktop', 1],
   ]);
 });
+
+test('an app she opens is let go at once, not tied to her (gio still running is its business)', async () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'capri-gio-'));
+  fs.writeFileSync(path.join(bin, 'gio'), '#!/bin/sh\nsleep 3\n', { mode: 0o755 });
+  const before = process.env.PATH;
+  process.env.PATH = `${bin}:${before}`;
+  const { launchEntry } = require('../src/main/linux-apps');
+  const start = Date.now();
+  await launchEntry('/usr/share/applications/whatever.desktop');
+  process.env.PATH = before;
+  fs.rmSync(bin, { recursive: true, force: true });
+  assert.ok(Date.now() - start < 1000, `waited ${Date.now() - start} ms`);
+});
