@@ -12,9 +12,11 @@ const { app, shell } = require('electron');
 const { powershell } = require('./apps');
 
 const WIN = process.platform === 'win32';
+const LINUX = process.platform === 'linux';
+const linuxApps = require('./linux-apps');
 // not things to open from a chat: uninstallers, help pages and the like
 const SKIP = /uninstall|désinstaller|desinstalar|deinstall|readme|documentation|release notes|support center|website|manual/i;
-const STEAM_SKIP = /redistributable|dedicated server|steamworks/i;
+const STEAM_SKIP = /redistributable|dedicated server|steamworks|proton|steam linux runtime/i;
 // words that don't tell apps apart ("Roblox Player" is "roblox", "AM Music" is "am")
 const FILLER = new Set(['player', 'launcher', 'app', 'the', 'for', 'windows', 'desktop', 'client', 'x64', 'x86', 'beta', 'music', 'musique', 'media', 'audio', 'video', 'videos']);
 const CACHE_MS = 10 * 60 * 1000; // installed apps hardly change
@@ -27,7 +29,7 @@ const words = (text) => plain(text).split(/[^\p{L}\p{N}]+/u).filter((w) => w.len
 // Everything she can open: [{ name, kind: 'app' | 'steam' | 'epic', id }]
 async function launchables() {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.items;
-  if (!WIN) return [];
+  if (!WIN && !LINUX) return [];
   const items = [];
   const seen = new Set();
   const add = (item) => {
@@ -38,6 +40,12 @@ async function launchables() {
   };
   // games first: a game's own entry wins over a shortcut to it
   for (const game of [...steamGames(await steamRoot()), ...epicGames()]) add(game);
+  if (LINUX) {
+    // the apps of your desktop's menu, from their desktop entries
+    for (const entry of linuxApps.desktopEntries()) if (!entry.hidden) add({ name: entry.name, kind: 'app', id: entry.id });
+    cache = { at: Date.now(), items };
+    return items;
+  }
   // the Start menu's list is slow the first time (PowerShell starting cold): main.js asks for it early
   const out = await powershell('Get-StartApps | Select-Object Name, AppID | ConvertTo-Json -Compress', 45000).catch(() => null);
   for (const { Name, AppID } of [].concat(out ? JSON.parse(out) : [])) {
@@ -48,6 +56,10 @@ async function launchables() {
 }
 
 function steamRoot() {
+  if (LINUX) {
+    const roots = ['.local/share/Steam', '.steam/steam'].map((dir) => path.join(app.getPath('home'), dir));
+    return Promise.resolve(roots.find((dir) => fs.existsSync(path.join(dir, 'steamapps'))) || null);
+  }
   return new Promise((resolve) => {
     execFile('reg.exe', ['query', 'HKCU\\Software\\Valve\\Steam', '/v', 'SteamPath'], { windowsHide: true, timeout: 5000 }, (err, out) => {
       const found = !err && /SteamPath\s+REG_SZ\s+(.+)/.exec(String(out))?.[1].trim();
@@ -172,6 +184,8 @@ function knownFolder(text) {
 }
 
 function openKnown(id) {
+  if (LINUX && id === 'explorer') return shell.openPath(app.getPath('home'));
+  if (LINUX && id === 'recycle') return spawn('gio', ['open', 'trash:///'], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
   if (id === 'explorer') return spawn('explorer.exe', [], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
   if (id === 'recycle') return spawn('explorer.exe', ['shell:RecycleBinFolder'], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
   return shell.openPath(app.getPath(id));
@@ -201,6 +215,7 @@ async function launch({ kind, id } = {}) {
   if (!item) throw new Error('not found');
   if (kind === 'steam') return shell.openExternal(`steam://rungameid/${id}`);
   if (kind === 'epic') return shell.openExternal(`com.epicgames.launcher://apps/${encodeURIComponent(id)}?action=launch&silent=true`);
+  if (LINUX) return linuxApps.launchEntry(id);
   spawn('explorer.exe', [`shell:AppsFolder\\${id}`], { detached: true, stdio: 'ignore' }).on('error', () => {}).unref();
   return undefined;
 }
@@ -213,6 +228,7 @@ const KEY_DOWN = 1; // KEYEVENTF_EXTENDEDKEY
 const KEY_UP = 3;   // ...and KEYEVENTF_KEYUP
 
 async function media(action) {
+  if (LINUX) return linuxApps.media(action);
   if (!WIN || !MEDIA[action]) return false;
   const [key, times] = MEDIA[action];
   return powershell(

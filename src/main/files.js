@@ -114,16 +114,24 @@ async function open(file, { reveal = false } = {}) {
 
 // A screenshot of the screen she's on, full size, saved in Pictures › Screenshots (made if needed).
 async function screenshot(display) {
+  const dir = path.join(app.getPath('pictures'), 'Screenshots');
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+  const file = path.join(dir, `Capri ${stamp}.png`);
+  // Linux: grim, where Electron's way would have the screen-sharing portal ask you first
+  const png = process.platform === 'linux' ? await require('./linux-apps').grab().catch(() => null) : null;
+  if (png) {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(file, png);
+    found.add(file);
+    return { path: file, name: path.basename(file) };
+  }
   const d = display || screen.getPrimaryDisplay();
   const k = d.scaleFactor || 1;
   const size = { width: Math.round(d.bounds.width * k), height: Math.round(d.bounds.height * k) };
   const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size });
   const src = sources.find((s) => s.display_id === String(d.id)) || sources[0];
   if (!src || src.thumbnail.isEmpty()) throw new Error('no picture of the screen');
-  const dir = path.join(app.getPath('pictures'), 'Screenshots');
   fs.mkdirSync(dir, { recursive: true });
-  const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
-  const file = path.join(dir, `Capri ${stamp}.png`);
   fs.writeFileSync(file, src.thumbnail.toPNG());
   found.add(file);
   return { path: file, name: path.basename(file) };

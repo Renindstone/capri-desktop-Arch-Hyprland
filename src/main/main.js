@@ -670,6 +670,11 @@ async function snapScreen() {
   const d = targetDisplay();
   const k = d.scaleFactor || 1;
   const fit = Math.min(1, 1280 / (d.bounds.width * k));
+  // Linux: grim, where Electron's way would have the screen-sharing portal ask you each time
+  if (process.platform === 'linux') {
+    const jpeg = await require('./linux-apps').grab({ scale: fit, quality: 72 }).catch(() => null);
+    if (jpeg) return jpeg.toString('base64');
+  }
   const size = { width: Math.round(d.bounds.width * k * fit), height: Math.round(d.bounds.height * k * fit) };
   const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size });
   const src = sources.find((s) => s.display_id === String(d.id)) || sources[0];
