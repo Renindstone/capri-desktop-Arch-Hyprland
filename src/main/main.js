@@ -37,6 +37,17 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'capri', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true } },
 ]);
 
+// on Linux, the system her menu names where Windows' says "Windows" (/etc/os-release)
+const SYSTEM = process.platform === 'linux' ? osName() : null;
+
+function osName() {
+  try {
+    return fs.readFileSync('/etc/os-release', 'utf8').match(/^PRETTY_NAME="?([^"\n]+)"?$/m)?.[1] || 'Linux';
+  } catch {
+    return 'Linux';
+  }
+}
+
 let overlay = null;
 let hypr = null; // her window in Hyprland (Linux): hyprland.js
 let tray = null;
@@ -306,8 +317,11 @@ function rebuildTray() {
   const cfg = config.load();
   const hookState = activeHooks().status();
   const watched = activeAssistant();
-  const t = Object.fromEntries(Object.entries(TRAY[resolveLang(cfg.lang)]).map(([key, value]) =>
-    [key, typeof value === 'string' && watched.id !== 'claude' ? value.replaceAll('Claude Code', watched.name) : value]));
+  const t = Object.fromEntries(Object.entries(TRAY[resolveLang(cfg.lang)]).map(([key, value]) => {
+    if (typeof value !== 'string') return [key, value];
+    if (watched.id !== 'claude') value = value.replaceAll('Claude Code', watched.name);
+    return [key, SYSTEM ? value.replaceAll('Windows', SYSTEM) : value]; // "Start with CachyOS"
+  }));
 
   const screens = displays();
   const current = targetDisplay().id;
@@ -323,7 +337,7 @@ function rebuildTray() {
   };
   const cancelReminder = (id) => updateConfig({ reminders: (config.load().reminders || []).filter((r) => r.id !== id) });
 
-  const menu = Menu.buildFromTemplate([
+  const template = [
     { label: t.online(PORT), enabled: false },
     { label: t.sync(Math.min(100, Math.floor(xp / 10)), t.stages[stage]), enabled: false },
     { type: 'separator' },
@@ -480,8 +494,8 @@ function rebuildTray() {
     {
       label: t.startup,
       type: 'checkbox',
-      checked: app.getLoginItemSettings(loginItemOptions()).openAtLogin,
-      click: (item) => app.setLoginItemSettings({ ...loginItemOptions(), openAtLogin: item.checked }),
+      checked: startsAtLogin(),
+      click: (item) => setStartsAtLogin(item.checked),
     },
     // her hooks, while she watches Claude Code
     ...(cfg.claude ? [
@@ -493,15 +507,55 @@ function rebuildTray() {
     ] : []),
     { type: 'separator' },
     { label: t.quit, click: () => app.quit() },
-  ]);
-  tray.setContextMenu(menu);
+  ];
+  const menu = Menu.buildFromTemplate(template);
+  tray.setContextMenu(process.platform === 'linux' ? Menu.buildFromTemplate(ticked(template)) : menu);
   trayMenu = menu;
+}
+
+// Some Linux trays (Caelestia's on Hyprland) draw no ticks next to the options: the tick goes in
+// their label, on or off. Her own right-click menu draws them, so it keeps the plain labels.
+function ticked(items) {
+  return items.map((item) => {
+    const out = Array.isArray(item.submenu) ? { ...item, submenu: ticked(item.submenu) } : item;
+    if (out.type !== 'checkbox' && out.type !== 'radio') return out;
+    const [on, off] = out.type === 'radio' ? ['◉', '○'] : ['☑', '☐'];
+    return { ...out, label: `${out.checked ? on : off}  ${out.label}` };
+  });
 }
 
 // Run from a clone (`npm start`), electron.exe alone would open the default Electron app at login:
 // it needs the project folder as argument.
 function loginItemOptions() {
   return app.isPackaged ? {} : { path: process.execPath, args: [ROOT] };
+}
+
+// Starting with the session. Electron only does it on Windows and macOS; on Linux it's a desktop
+// entry in ~/.config/autostart, which the session starts (systemd's xdg-autostart, or the desktop).
+const AUTOSTART = path.join(os.homedir(), '.config', 'autostart', 'capri.desktop');
+
+function startsAtLogin() {
+  if (process.platform !== 'linux') return app.getLoginItemSettings(loginItemOptions()).openAtLogin;
+  return fs.existsSync(AUTOSTART);
+}
+
+function setStartsAtLogin(on) {
+  if (process.platform !== 'linux') {
+    app.setLoginItemSettings({ ...loginItemOptions(), openAtLogin: on });
+    return;
+  }
+  if (on) {
+    // installed (packaging/arch), her own command; from a clone, Electron with the project folder
+    const exec = ROOT.startsWith('/usr/') ? 'capri' : `"${process.execPath}" "${ROOT}"`;
+    fs.mkdirSync(path.dirname(AUTOSTART), { recursive: true });
+    fs.writeFileSync(AUTOSTART, [
+      '[Desktop Entry]', 'Type=Application', 'Name=Capri', `Exec=${exec}`,
+      `Icon=${path.join(ROOT, 'assets', 'icons', 'capri.png')}`, 'X-GNOME-Autostart-enabled=true', '',
+    ].join('\n'));
+  } else {
+    fs.rmSync(AUTOSTART, { force: true });
+  }
+  rebuildTray(); // the tick in the label
 }
 
 // From the tray, she says how it went; from her welcome panel (quiet), the panel does.
