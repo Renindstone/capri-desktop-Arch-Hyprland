@@ -11,6 +11,12 @@ const CHARGER_EVERY = 60 * 1000;
 const PLUG_EVERY = 15 * 1000;
 const GAME_AFTER = 6000;  // a game in front this long: you're playing
 const GAME_OVER = 8000;   // and gone this long: you're done
+// Linux: you at the sound (media.js) and a window you open (linux-windows.js)
+const VOLUME_EVERY = 8000;   // her body reacts to the sound once in that long at most (the level shows each time)
+const OPENED_EVERY = 15000;  // she turns to a window opening once in that long at most
+const OPENED_AFTER = 5000;   // and not right as she starts, with the session opening its windows
+const SAY_EVERY = 90 * 1000; // a word about either, now and then
+const VOLUME_ACTS = { up: 'hop', down: 'flinch', mute: 'huff', unmute: 'curious' };
 
 const PHONE = /phone|iphone|apple|galaxy|samsung|pixel|xiaomi|redmi|poco|oneplus|huawei|honor|motorola|oppo|vivo|realme|nokia|xperia|android|mobile|t[ée]l[ée]phone|celular|телефон/i;
 const PAD = /controller|gamepad|manette|mando|controle|xbox|dualsense|dualshock|joy-?con|геймпад/i;
@@ -39,6 +45,10 @@ export class Pc {
     this.warned = 1; // lowest battery level she warned about (1: none yet)
     this.cutOff = false;
     this.drives = null;
+    this.startedAt = Date.now();
+    this.volumeAt = -Infinity;
+    this.openedAt = -Infinity;
+    this.saidAt = -Infinity;
     this.plugs = null; // count of plug events seen (windows.ps1)
     this.plugAt = -Infinity;
     this.game = null;
@@ -147,6 +157,38 @@ export class Pc {
   }
 
   // what windows.ps1 sees: USB sticks by letter, devices plugged in or out, the game in front
+  // a word now and then (chance), not every time
+  sayNow(lines, chance) {
+    const now = Date.now();
+    if (now - this.saidAt < SAY_EVERY || Math.random() > chance) return;
+    this.saidAt = now;
+    this.say(pick(lines), 'smug', 3000);
+  }
+
+  // You turned the sound up, down, off or on again (Linux): the level floats over her head, and
+  // now and then her body goes with it, a hop up, a flinch down, a huff at the silence.
+  onVolume({ dir, level }) {
+    if (!this.quiet) return;
+    const n = Math.max(0, Math.min(10, Math.round(level * 10)));
+    const h = this.capri.head();
+    this.capri.fx.glyph(h.x, h.y - 40, [`${'▮'.repeat(n)}${'▯'.repeat(10 - n)} ${Math.round(level * 100)}%`]);
+    const now = Date.now();
+    if (now - this.volumeAt < VOLUME_EVERY || !this.capri.free) return;
+    this.volumeAt = now;
+    this.capri.perform(VOLUME_ACTS[dir], 1);
+    this.sayNow(this.t.volume[dir], 0.35);
+  }
+
+  // A window you just opened (Linux): her head turns to it, a curious look.
+  onOpened({ x }) {
+    const now = Date.now();
+    if (!this.quiet || now - this.startedAt < OPENED_AFTER || now - this.openedAt < OPENED_EVERY) return;
+    this.openedAt = now;
+    if (!this.capri.free) return;
+    this.capri.perform('curious', x > this.capri.pos.x ? 1 : -1);
+    this.sayNow(this.t.opened, 0.25);
+  }
+
   onWindows({ usb = [], plug = null, game = null }) {
     if (!this.enabled) {
       this.drives = usb;

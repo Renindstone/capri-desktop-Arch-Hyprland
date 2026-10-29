@@ -68,3 +68,10 @@ test('the special workspace, when shown, is seen over the regular one', () => {
   assert.equal(snapshot({ clients: [CODIUM, music], active: CODIUM, monitors: [shown], self: null }).wins[0].id, 0x77);
   assert.equal(snapshot({ clients: [CODIUM, music], active: CODIUM, monitors: [MONITOR], self: null }).wins.length, 1);
 });
+
+test('a window just opened: the middle of it, found by the address in the event (no 0x there)', () => {
+  const { openedAt } = require('../src/main/linux-windows');
+  const s = snap();
+  assert.deepEqual(openedAt(s.wins, 'c0'), { x: 1321 + 604, y: 31 + 350 });
+  assert.equal(openedAt(s.wins, 'd0'), null); // on another workspace: not seen
+});

@@ -534,6 +534,8 @@ async function boot() {
     jealousy.onWindows(data);
     pc.onWindows(data);
   });
+  host.onVolume?.((change) => pc.onVolume(change));
+  host.onOpened?.((at) => pc.onOpened(at));
   // the windows as they are now: the watcher only speaks again when something changes
   host.windowsNow().then((data) => data && capri.setWindows(data));
 

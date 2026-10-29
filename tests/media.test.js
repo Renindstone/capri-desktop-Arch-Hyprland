@@ -33,3 +33,21 @@ test('a playerctl status line: who, and whether it plays', () => {
   assert.deepEqual(parseStatus('chromium.instance30741 Stopped'), { player: 'chromium.instance30741', playing: false });
   assert.equal(parseStatus(''), null);
 });
+
+test('wpctl volume, muted or not', () => {
+  const { parseVolume } = require('../src/main/media');
+  assert.deepEqual(parseVolume('Volume: 0.45'), { level: 0.45, muted: false });
+  assert.deepEqual(parseVolume('Volume: 1.00 [MUTED]\n'), { level: 1, muted: true });
+  assert.equal(parseVolume('error'), null);
+});
+
+test('what a volume change was: up, down, muted, unmuted, or nothing', () => {
+  const { volumeChange } = require('../src/main/media');
+  const v = (level, muted = false) => ({ level, muted });
+  assert.equal(volumeChange(v(0.4), v(0.5)), 'up');
+  assert.equal(volumeChange(v(0.5), v(0.4)), 'down');
+  assert.equal(volumeChange(v(0.5), v(0.5, true)), 'mute');
+  assert.equal(volumeChange(v(0.5, true), v(0.5)), 'unmute');
+  assert.equal(volumeChange(v(0.5), v(0.5)), null);
+  assert.equal(volumeChange(null, v(0.5)), null); // the first look: nothing to compare with
+});

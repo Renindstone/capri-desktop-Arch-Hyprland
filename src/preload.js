@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('host', {
   openClaudeHelp: () => ipcRenderer.send('claude:help'),
   windowsNow: () => ipcRenderer.invoke('windows:get'),
   onMedia: on('media:update'),
+  onVolume: on('pc:volume'),
+  onOpened: on('pc:opened'),
   mediaNow: () => ipcRenderer.invoke('media:get'),
   trayPlace: () => ipcRenderer.invoke('guide:tray'),
   openClaudeFolder: () => ipcRenderer.invoke('guide:claudeFolder'),

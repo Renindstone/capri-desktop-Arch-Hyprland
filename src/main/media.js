@@ -6,7 +6,7 @@
 
 const fs = require('node:fs');
 const readline = require('node:readline');
-const { spawn } = require('node:child_process');
+const { spawn, execFile } = require('node:child_process');
 
 const PEAR = /pear-desktop|youtube-music/i;
 
@@ -78,4 +78,65 @@ function startMediaWatch({ onChange }) {
   };
 }
 
-module.exports = { isPear, parseStatus, startMediaWatch };
+// `wpctl get-volume`: "Volume: 0.45", with " [MUTED]" when it is
+function parseVolume(text) {
+  const m = /Volume:\s*([\d.]+)/.exec(text);
+  return m ? { level: Number(m[1]), muted: /\[MUTED\]/.test(text) } : null;
+}
+
+// what happened between two looks at the volume
+function volumeChange(before, after) {
+  if (!before || !after) return null;
+  if (after.muted !== before.muted) return after.muted ? 'mute' : 'unmute';
+  if (after.level > before.level) return 'up';
+  if (after.level < before.level) return 'down';
+  return null;
+}
+
+// onChange({ dir, level }) when you turn the sound up, down, off or on again. PipeWire (pactl
+// subscribe) says a speaker changed; holding the key down is many of those, so she looks once
+// they've stopped for a moment. Her own changes (ignoreFor, from her chat) aren't yours.
+function startVolumeWatch({ onChange }) {
+  let last = null;
+  let timer = 0;
+  let ignoreUntil = 0;
+  let child = null;
+  let stopped = false;
+
+  const look = () => execFile('wpctl', ['get-volume', '@DEFAULT_AUDIO_SINK@'], { timeout: 3000 }, (err, out) => {
+    const now = parseVolume(String(out || ''));
+    if (err || !now) return;
+    const dir = Date.now() < ignoreUntil ? null : volumeChange(last, now);
+    last = now;
+    if (dir) onChange({ dir, level: now.muted ? 0 : now.level });
+  });
+
+  const start = () => {
+    child = spawn('pactl', ['subscribe'], { stdio: ['ignore', 'pipe', 'ignore'] });
+    readline.createInterface({ input: child.stdout }).on('line', (line) => {
+      if (!/'change' on sink #/.test(line)) return;
+      clearTimeout(timer);
+      timer = setTimeout(look, 400);
+    });
+    child.on('error', (err) => {
+      stopped = true; // no pactl: no volume to follow
+      console.error('[capri] volume watch:', err.message);
+    });
+    child.on('exit', () => !stopped && setTimeout(start, 5000));
+  };
+
+  look(); // how it is now: nothing to react to
+  start();
+  return {
+    ignoreFor(ms) {
+      ignoreUntil = Date.now() + ms;
+    },
+    stop() {
+      stopped = true;
+      clearTimeout(timer);
+      child?.kill();
+    },
+  };
+}
+
+module.exports = { isPear, parseStatus, startMediaWatch, parseVolume, volumeChange, startVolumeWatch };

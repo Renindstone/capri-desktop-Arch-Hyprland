@@ -15,7 +15,7 @@ const { TRAY, LANGS } = require('./labels');
 const { createBridge } = require('./bridge');
 const { startWindowWatch } = require('./windows');
 const hyprland = require('./hyprland');
-const { startMediaWatch } = require('./media');
+const { startMediaWatch, startVolumeWatch } = require('./media');
 const llm = require('./llm');
 const ollama = require('./ollama');
 const setup = require('./setup');
@@ -56,6 +56,7 @@ let trayMenu = null; // also what she opens when you right-click her
 let demoTimer = null;
 let windowWatch = null;
 let mediaWatch = null; // Pear playing music (Linux)
+let volumeWatch = null; // you turning the sound up or down (Linux)
 let lastMedia = { playing: false };
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
@@ -916,7 +917,10 @@ function registerIpc() {
     return shell.openExternal(`https://www.google.com/search?q=${encodeURIComponent(q)}`).then(() => true, () => false);
   });
   ipcMain.handle('apps:launch', (_e, item) => launch.launch(item).then(() => ({ ok: true }), (err) => ({ ok: false, error: err.message })));
-  ipcMain.handle('apps:media', (_e, action) => launch.media(action));
+  ipcMain.handle('apps:media', (_e, action) => {
+    volumeWatch?.ignoreFor(2000); // her doing, when you asked her: not something to react to
+    return launch.media(action);
+  });
   ipcMain.handle('apps:music', (_e, query) => launch.music(query).catch(() => false));
   ipcMain.handle('apps:site', (_e, address) => launch.site(address).catch(() => false));
   // typing to her: the overlay takes the keyboard while the chat is open, and gives it back after
@@ -1107,6 +1111,7 @@ function main() {
         lastWindows = data;
         overlay?.webContents.send('windows:update', data);
       },
+      onOpen: (at) => overlay?.webContents.send('pc:opened', at), // Linux: a window opened there
     });
     if (process.platform === 'linux') {
       mediaWatch = startMediaWatch({
@@ -1115,6 +1120,7 @@ function main() {
           overlay?.webContents.send('media:update', media);
         },
       });
+      volumeWatch = startVolumeWatch({ onChange: (change) => overlay?.webContents.send('pc:volume', change) });
     }
     createBridge({
       port: PORT,
@@ -1145,6 +1151,7 @@ function main() {
     globalShortcut.unregisterAll();
     windowWatch?.stop();
     mediaWatch?.stop();
+    volumeWatch?.stop();
     hypr?.stop();
   });
   app.on('window-all-closed', (e) => e.preventDefault());

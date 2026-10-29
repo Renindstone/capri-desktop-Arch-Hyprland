@@ -268,6 +268,8 @@ export const LINES = {
     screens: { hello: ['Coucou, l’autre écran.', 'Tu bosses ici maintenant ? J’arrive.', 'Me voilà.'] },
     // elle réagit à ton PC (pc.js) : processeur, batterie, réseau, clé USB, jeu
     pc: {
+      volume: { up: ['Plus fort ! Voilà.', 'Monte le son.'], down: ['D’accord, moins fort.', 'Chut… compris.'], mute: ['Le silence ? Ennuyeux.', 'Tu as coupé le monde.'], unmute: ['Le son est revenu.', 'Ah, j’entends de nouveau.'] }, // Linux: you, at the sound
+      opened: ['Qu’est-ce que tu as ouvert là ?', 'Oh, une nouvelle fenêtre.', 'Voyons ça.'], // Linux: a window you just opened
       hot: ['Ton processeur est à fond. Moi aussi, je chauffe.', '{cpu} % de processeur. Il fait chaud là-dedans.', 'Ça chauffe ! Tu fais tourner quoi, là ?'],
       cool: ['Ouf. Ça redescend.'],
       low: ['Batterie à {level} %. Je vais pas tenir longtemps.', 'Plus que {level} % de batterie. Branche-moi, choom.'],
@@ -618,6 +620,8 @@ export const LINES = {
     screens: { hello: ['Hi, other screen.', 'Working over here now? Coming.', 'There you are.'] },
     // she reacts to your PC (pc.js): processor, battery, network, USB stick, game
     pc: {
+      volume: { up: ['Louder! That’s more like it.', 'Turn it up.'], down: ['Fine, quieter.', 'Shh… got it.'], mute: ['Silence? Boring.', 'You muted the world.'], unmute: ['Sound’s back.', 'Ah, I can hear again.'] }, // Linux: you, at the sound
+      opened: ['What did you open there?', 'Oh, a new window.', 'Let me see that.'], // Linux: a window you just opened
       hot: ['Your processor is maxed out. I’m heating up too.', '{cpu}% CPU. It’s getting hot in here.', 'Things are heating up! What are you running?'],
       cool: ['Phew. Cooling down.'],
       low: ['Battery at {level}%. I won’t last long.', 'Only {level}% battery left. Plug me in, choom.'],
@@ -964,6 +968,8 @@ export const LINES = {
     screens: { hello: ['Hola, otra pantalla.', '¿Ahora trabajas aquí? Voy.', 'Aquí estás.'] },
     // reacciona a tu PC (pc.js): procesador, batería, red, USB, juego
     pc: {
+      volume: { up: ['¡Más fuerte! Así me gusta.', 'Sube, sube.'], down: ['Vale, más bajito.', 'Shh… entendido.'], mute: ['¿Silencio? Qué aburrido.', 'Le quitaste la voz al mundo.'], unmute: ['Volvió el sonido.', 'Ah, ya se oye otra vez.'] }, // Linux: you, at the sound
+      opened: ['¿Qué abriste ahí?', 'Oh, una ventana nueva.', 'A ver qué es eso.'], // Linux: a window you just opened
       hot: ['Tu procesador va a tope. Yo también me caliento.', '{cpu} % de CPU. Aquí dentro hace calor.', '¡Esto se calienta! ¿Qué estás ejecutando?'],
       cool: ['Uf. Ya baja.'],
       low: ['Batería al {level} %. No aguantaré mucho.', 'Solo queda un {level} % de batería. Enchúfame, choom.'],
@@ -1312,6 +1318,8 @@ export const LINES = {
     screens: { hello: ['Oi, outra tela.', 'Trabalhando aqui agora? Tô indo.', 'Aí está você.'] },
     // ela reage ao seu PC (pc.js): processador, bateria, rede, pendrive, jogo
     pc: {
+      volume: { up: ['Mais alto! Assim que eu gosto.', 'Aumenta.'], down: ['Tá, mais baixo.', 'Shh… entendi.'], mute: ['Silêncio? Que chato.', 'Você calou o mundo.'], unmute: ['O som voltou.', 'Ah, dá pra ouvir de novo.'] }, // Linux: you, at the sound
+      opened: ['O que você abriu aí?', 'Opa, uma janela nova.', 'Deixa eu ver isso.'], // Linux: a window you just opened
       hot: ['Seu processador tá no talo. Eu também tô esquentando.', '{cpu} % de CPU. Tá quente aqui dentro.', 'Tá esquentando! O que você tá rodando?'],
       cool: ['Ufa. Esfriando.'],
       low: ['Bateria em {level} %. Não vou aguentar muito.', 'Só {level} % de bateria. Me liga na tomada, choom.'],
@@ -1662,6 +1670,8 @@ export const LINES = {
     screens: { hello: ['Привет, другой экран.', 'Теперь работаешь тут? Иду.', 'Вот ты где.'] },
     // она реагирует на твой ПК (pc.js): процессор, батарея, сеть, флешка, игра
     pc: {
+      volume: { up: ['Громче! Вот это другое дело.', 'Прибавь.'], down: ['Ладно, потише.', 'Тсс… поняла.'], mute: ['Тишина? Скучно.', 'Ты выключил весь мир.'], unmute: ['Звук вернулся.', 'О, снова слышно.'] }, // Linux: you, at the sound
+      opened: ['Что ты там открыл?', 'О, новое окно.', 'Дай посмотреть.'], // Linux: a window you just opened
       hot: ['Твой процессор на пределе. Я тоже нагреваюсь.', 'Процессор на {cpu} %. Жарко тут.', 'Горячо! Что там у тебя запущено?'],
       cool: ['Фух. Остывает.'],
       low: ['Батарея {level} %. Долго я не протяну.', 'Осталось {level} % батареи. Подключи меня, чумба.'],

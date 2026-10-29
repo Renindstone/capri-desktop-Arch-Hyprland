@@ -15,8 +15,8 @@ const { screen } = require('electron');
 // in the installed app it sits next to the app archive (asarUnpack), where PowerShell can read it
 const SCRIPT = path.join(__dirname, 'windows.ps1').replace(`app.asar${path.sep}`, `app.asar.unpacked${path.sep}`);
 
-function startWindowWatch({ overlay, onUpdate }) {
-  if (process.platform === 'linux') return require('./linux-windows').startLinuxWindowWatch({ overlay, onUpdate });
+function startWindowWatch({ overlay, onUpdate, onOpen }) {
+  if (process.platform === 'linux') return require('./linux-windows').startLinuxWindowWatch({ overlay, onUpdate, onOpen });
   if (process.platform !== 'win32') return { stop() {}, refresh() {} };
 
   let child = null;

@@ -88,15 +88,24 @@ function snapshot({ clients, active, monitors, self, pathsOf = procPaths }) {
   };
 }
 
+// The middle of a window just opened, from its address as Hyprland's event gives it (no 0x), if she
+// can see it.
+function openedAt(wins, address) {
+  const id = Number.parseInt(address, 16);
+  const win = wins.find((w) => w.id === id);
+  return win ? { x: win.x + win.w / 2, y: win.y + win.h / 2 } : null;
+}
+
 // Feeds the overlay as windows.js does: Hyprland's events say when to look again (grouped over
 // 100 ms), and it only speaks when something changed. Resizing a tiled window says nothing, hence a
-// look every couple of seconds too.
-function startLinuxWindowWatch({ overlay, onUpdate }) {
+// look every couple of seconds too. onOpen({ x, y }): a window opened there (her overlay's pixels).
+function startLinuxWindowWatch({ overlay, onUpdate, onOpen }) {
   if (!hyprland.active) return { stop() {}, refresh() {} };
   let last = null;
   let lastJson = '';
   let front = null;
   let timer = 0;
+  let opened = null; // the address of a window just opened, until it's been seen
 
   const send = () => {
     if (!last || overlay.isDestroyed()) return;
@@ -113,6 +122,12 @@ function startLinuxWindowWatch({ overlay, onUpdate }) {
     // her own window taking the pointer isn't you going to another window
     if (active?.address !== self) front = active?.address ? active : null;
     const snap = snapshot({ clients, active: front, monitors, self });
+    const at = opened && openedAt(snap.wins, opened);
+    if (at) {
+      opened = null;
+      const bounds = overlay.getBounds();
+      onOpen?.({ x: at.x - bounds.x, y: at.y - bounds.y });
+    }
     const json = JSON.stringify(snap);
     if (json === lastJson) return;
     lastJson = json;
@@ -127,7 +142,10 @@ function startLinuxWindowWatch({ overlay, onUpdate }) {
     }, 100);
   };
 
-  const events = hyprland.listen(look);
+  const events = hyprland.listen((name, data) => {
+    if (name === 'openwindow') opened = data.split(',')[0];
+    look();
+  });
   const every = setInterval(look, 2000);
   look();
   return {
@@ -140,4 +158,4 @@ function startLinuxWindowWatch({ overlay, onUpdate }) {
   };
 }
 
-module.exports = { snapshot, startLinuxWindowWatch };
+module.exports = { snapshot, openedAt, startLinuxWindowWatch };
