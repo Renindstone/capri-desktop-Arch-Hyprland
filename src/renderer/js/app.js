@@ -15,7 +15,7 @@ import { Look } from './look.js';
 import { Pc } from './pc.js';
 import { linesFor } from './lines.js';
 import { pick, fmt, reducedMotion } from './util.js';
-import { Held } from './mood.js';
+import { Held, MUSIC_HOLD, CODING_HOLD } from './mood.js';
 
 const host = window.host;
 
@@ -508,7 +508,7 @@ async function boot() {
 
   // music playing and you coding (mood.js): on at once, off only after a while (a skipped song, a
   // glance at another window), checked again every second for that
-  const mood = { music: new Held(5000), coding: new Held(10000) };
+  const mood = { music: new Held(MUSIC_HOLD), coding: new Held(CODING_HOLD) };
   const moodNow = { music: false, coding: false };
   let pearPlaying = false;
   let dances = config.music !== false; // her menu › Dance to the music

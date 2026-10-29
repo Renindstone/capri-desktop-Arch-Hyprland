@@ -37,3 +37,13 @@ test('off from the start stays off', async () => {
   const { Held } = await load();
   assert.equal(new Held(10000).set(false, 0), false);
 });
+
+test('music: a skipped song (stopped 60 ms) keeps her dancing, a pause stops her within 2 s', async () => {
+  const { Held, MUSIC_HOLD } = await load();
+  const music = new Held(MUSIC_HOLD);
+  music.set(true, 0);
+  music.set(false, 1000); // the skip, as Pear says it: Stopped
+  assert.equal(music.set(true, 1060), true); // and Playing again
+  assert.equal(music.set(false, 5000), true); // paused
+  assert.equal(music.set(false, 7000), false);
+});

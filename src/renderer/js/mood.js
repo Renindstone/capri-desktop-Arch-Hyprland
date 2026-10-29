@@ -2,6 +2,11 @@
 // go off once they've been off a while, so a skipped song or a glance at another window doesn't
 // flip her back and forth.
 
+// How long each stays on once it's really off. Music: skipping a song in Pear is Stopped for some
+// 60 ms, a pause should stop her dancing right after. Coding: a glance at another window.
+export const MUSIC_HOLD = 1500;
+export const CODING_HOLD = 10000;
+
 export class Held {
   constructor(holdMs) {
     this.holdMs = holdMs;

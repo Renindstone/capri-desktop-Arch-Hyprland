@@ -66,3 +66,10 @@ test('an app she opens is let go at once, not tied to her (gio still running is 
   fs.rmSync(bin, { recursive: true, force: true });
   assert.ok(Date.now() - start < 1000, `waited ${Date.now() - start} ms`);
 });
+
+test('a launcher on your desktop (.desktop) is an app to start, not a document to open', () => {
+  const { isLauncher } = require('../src/main/linux-apps');
+  assert.equal(isLauncher('/home/u/Escritorio/steam.desktop'), true);
+  assert.equal(isLauncher('/home/u/Escritorio/cv.pdf'), false);
+  assert.equal(isLauncher('/home/u/Escritorio/notes.desktop.txt'), false);
+});

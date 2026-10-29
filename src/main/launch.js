@@ -207,6 +207,7 @@ async function launch({ kind, id } = {}) {
   }
   if (kind === 'file' || kind === 'folder') {
     if (!desktopItems().some((i) => i.id === id)) throw new Error('not found');
+    if (LINUX && linuxApps.isLauncher(id)) return linuxApps.launchEntry(id); // Linux's shortcuts, as Windows' .lnk open
     const err = await shell.openPath(id);
     if (err) throw new Error(err);
     return undefined;

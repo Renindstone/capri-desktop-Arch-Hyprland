@@ -17,6 +17,9 @@ const ASLEEP = 1000 / 6;
 const SLEEP_AFTER = 10 * 60 * 1000;
 const DOZE_AFTER = 20 * 1000; // asleep this long, she comes apart down to her mask
 const NOTES = ['♪', '♫', '♩', '♬']; // what she sheds with music on, in place of data glyphs
+// Linux (Hyprland): tiled windows start right under the top of the screen, leaving her no room to sit
+// on them, so she takes over the window in front from where she stands
+const LINUX = globalThis.host?.platform === 'linux';
 const GRAVITY = 2600; // px/s²
 const THIGH = 73;     // hip to knee, sprite px (see sprite.js)
 const DEG = Math.PI / 180;
@@ -602,6 +605,7 @@ export class Capri {
     const seat = this.pickSeat();
     const r = Math.random();
     if (seat && r < 0.35) this.sitOn(seat);
+    else if (!seat && r < 0.2 && this.canPossess()) this.possess(); // nowhere to sit (Linux, LINUX above)
     else if (r < 0.6) this.peek();
     else if (r < 0.85) this.teleport(this.spot('random'));
     else this.flourish();
@@ -1370,8 +1374,14 @@ export class Capri {
   }
 
   canPossess() {
-    return this.possessWindows && !this.busy && !this.hidden && this.stance === 'sit' && !reducedMotion.matches
-      && this.windows.wins.some((w) => w.id === this.perch?.id);
+    return this.possessWindows && !this.busy && !this.hidden && !reducedMotion.matches && Boolean(this.possessable());
+  }
+
+  // The window she'd take over: the one she sits on; on Linux, standing, the one in front (LINUX).
+  possessable() {
+    if (this.stance === 'sit') return this.windows.wins.find((w) => w.id === this.perch?.id) || null;
+    if (!LINUX || this.stance !== 'stand') return null;
+    return this.windows.wins.find((w) => w.id === this.windows.fg) || null;
   }
 
   // The windows in front of window `id` (nothing of hers is drawn over those).
@@ -1391,15 +1401,15 @@ export class Capri {
   async possess({ say = '', angry = false } = {}) {
     if (!this.canPossess()) return false;
     const s = this.scale;
-    const id = this.perch.id;
-    const win = this.windows.wins.find((w) => w.id === id);
-    const entry = this.pos.x - win.x;
+    const win = this.possessable();
+    const id = win.id;
+    const entry = clamp(this.pos.x - win.x, 60, Math.max(60, win.w - 60)); // standing, she may be off to its side
     this.busy = true;
     this.wake();
     this.onTeleport?.('start');
     await this.perform('dive');
     const head = await this.vanish({ beam: false });
-    this.fx.streak(head.x, head.y, this.pos.x, win.y + 40 * s);
+    this.fx.streak(head.x, head.y, win.x + entry, win.y + 40 * s);
 
     const rect = () => this.windows.wins.find((w) => w.id === id) || null;
     const covers = () => this.coversOf(id);

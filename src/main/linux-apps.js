@@ -144,4 +144,7 @@ function grab({ scale = 1, quality = 0 } = {}) {
   });
 }
 
-module.exports = { parseDesktopEntry, desktopEntries, appsFrom, listApps, closeApp, media, launchEntry, grab };
+// a launcher (a desktop entry, on your desktop or anywhere): an app to start, not a file to open
+const isLauncher = (file) => /\.desktop$/i.test(file);
+
+module.exports = { isLauncher, parseDesktopEntry, desktopEntries, appsFrom, listApps, closeApp, media, launchEntry, grab };
