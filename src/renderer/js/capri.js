@@ -16,6 +16,7 @@ const ON_ONES = 1000 / 24;
 const ASLEEP = 1000 / 6;
 const SLEEP_AFTER = 10 * 60 * 1000;
 const DOZE_AFTER = 20 * 1000; // asleep this long, she comes apart down to her mask
+const NOTES = ['♪', '♫', '♩', '♬']; // what she sheds with music on, in place of data glyphs
 const GRAVITY = 2600; // px/s²
 const THIGH = 73;     // hip to knee, sprite px (see sprite.js)
 const DEG = Math.PI / 180;
@@ -50,6 +51,8 @@ export class Capri {
     this.pos = { x: innerWidth - 200, y: innerHeight - 6 }; // her feet
     this.facing = 1; // 1: as drawn (reaching left), -1: mirrored
     this.mode = 'idle'; // idle | work | alert | sleep
+    this.music = false;  // music playing (setMood)
+    this.coding = false; // you in your code editor (setMood)
     this.stance = 'stand';
     this.perch = null;    // { id, dx }: the window she sits on, and where along it
     this.peekSide = null; // left | right | top
@@ -513,12 +516,12 @@ export class Capri {
       if (!reducedMotion.matches && this.stance !== 'peek') this.shed();
     }
 
-    if (this.mode === 'idle' && this.stance !== 'peek' && now > this.nextGaze) {
+    if (this.calm && this.stance !== 'peek' && now > this.nextGaze) {
       this.nextGaze = now + rand(90000, 180000);
       this.gaze();
     }
 
-    if (this.mode === 'idle' && now - this.lastActivity > SLEEP_AFTER) this.setMode('sleep');
+    if (this.calm && now - this.lastActivity > SLEEP_AFTER) this.setMode('sleep');
     if (this.mode === 'sleep' && now - this.sleptAt > DOZE_AFTER) {
       this.doze();
       return;
@@ -537,16 +540,35 @@ export class Capri {
       return;
     }
 
-    if (this.mode === 'idle' && now > this.nextMove) {
+    if (this.calm && now > this.nextMove) {
       this.nextMove = now + rand(25000, 70000);
       this.wanderStep();
     }
 
-    if (this.mode === 'work' && now - this.lastGlyph > 420) {
+    if ((this.mode === 'work' || this.music || this.coding) && now - this.lastGlyph > 420) {
       this.lastGlyph = now;
       const h = this.head();
-      this.fx.glyph(h.x, h.y - 30);
+      this.fx.glyph(h.x, h.y - 30, this.music ? NOTES : undefined);
     }
+  }
+
+  // nothing going on: no Claude at work, no music, not you coding
+  get calm() {
+    return this.mode === 'idle' && !this.music && !this.coding;
+  }
+
+  // Her lasting states besides Claude's (app.js holds them, mood.js): music playing is a cycle of
+  // her own under whatever she does (baseAct), and you coding looks like Claude at work, minus the
+  // ticker. Claude asking you something (alert) still comes first.
+  setMood({ music = this.music, coding = this.coding }) {
+    if (music === this.music && coding === this.coding) return;
+    const started = (music && !this.music) || (coding && !this.coding);
+    const toWork = coding && !this.coding && this.mode === 'idle';
+    this.music = music;
+    this.coding = coding;
+    if (started) this.wake();
+    if (toWork) this.settleForWork();
+    if (this.stance === 'stand' || this.stance === 'sit') this.base = this.restBase();
   }
 
   // What she does with herself when nobody needs her.
@@ -637,12 +659,14 @@ export class Capri {
   }
 
   baseAct() {
-    if (this.stance === 'sit') return 'sit';
+    const groove = this.music && this.mode !== 'alert' && this.mode !== 'sleep'; // Claude asking comes first
+    if (this.stance === 'sit') return groove ? 'grooveSit' : 'sit';
     if (this.stance === 'peek') return 'peek';
     if (this.stance === 'fall') return 'fall';
     if (this.stance === 'held') return 'held';
     if (this.stance === 'fly') return this.flight?.kind === 'leap' ? 'leap' : 'tumble';
     if (this.stance === 'down') return 'ko';
+    if (groove) return 'groove';
     return this.mode === 'sleep' ? 'sleep' : 'stand';
   }
 
@@ -657,7 +681,7 @@ export class Capri {
     this.mode = mode;
     if (mode === 'sleep') this.sleptAt = now;
     this.onMode?.(mode, prev);
-    if (this.stance === 'stand') this.base = this.restBase();
+    if (this.stance === 'stand' || (this.music && this.stance === 'sit')) this.base = this.restBase();
     const p = this.p;
     if (mode === 'sleep') tween(p, { alpha: 0.55, sparkle: 0.35, boil: 0.4 }, 900, ease.inOut);
     else tween(p, { alpha: 1, sparkle: 1, boil: 0.9 }, 250, ease.out);
@@ -672,6 +696,11 @@ export class Capri {
   // Somewhere to be while Claude works: on the window in front if she can sit on it, else her corner.
   goToWork() {
     this.setMode('work');
+    this.settleForWork();
+  }
+
+  // the same place to be, for you coding (setMood): Claude's mode stays as it is
+  settleForWork() {
     const seat = this.pickSeat({ frontOnly: true });
     if (seat) {
       if (this.stance === 'sit' && this.perch?.id === seat.win.id) return;

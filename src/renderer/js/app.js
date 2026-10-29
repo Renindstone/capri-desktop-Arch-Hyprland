@@ -15,6 +15,7 @@ import { Look } from './look.js';
 import { Pc } from './pc.js';
 import { linesFor } from './lines.js';
 import { pick, fmt, reducedMotion } from './util.js';
+import { Held } from './mood.js';
 
 const host = window.host;
 
@@ -505,8 +506,20 @@ async function boot() {
   // what's in here, for --dev scripts (debug route `eval`)
   window.dev = { capri, brain, panel, chat, guide, fx, voice, bond, jealousy, reminders, look, pc, setup, screens: () => screens };
 
+  // music playing and you coding (mood.js): on at once, off only after a while (a skipped song, a
+  // glance at another window), checked again every second for that
+  const mood = { music: new Held(5000), coding: new Held(10000) };
+  const moodNow = { music: false, coding: false };
+  const applyMood = () => {
+    const now = Date.now();
+    capri.setMood({ music: mood.music.set(moodNow.music, now), coding: mood.coding.set(moodNow.coding, now) });
+  };
+  setInterval(applyMood, 1000);
+
   host.onClaudeEvent((evt) => brain.handle(evt));
   host.onWindows((data) => {
+    moodNow.coding = Boolean(data.coding);
+    applyMood();
     capri.setWindows(data);
     brain.onWindows(data);
     jealousy.onWindows(data);
@@ -669,6 +682,10 @@ async function boot() {
         break;
       case 'bond': // --dev: sync points from a source (as if earned)
         bond.add(cmd.source || 'chat', cmd.n || 1);
+        break;
+      case 'music': // --dev: as if music started (on) or stopped playing
+        moodNow.music = cmd.on !== false;
+        applyMood();
         break;
       case 'rearmed': // a new mouse hook (main.js): click-through until the pointer comes over her again
         mouse = null;

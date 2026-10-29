@@ -54,6 +54,29 @@ export const ACTS = {
     ],
   },
 
+  // music playing (mood.js): her head and mane on the beat, about 103 bpm (7 drawings a beat), swaying
+  // from one side to the other, an arm lifting with each beat
+  groove: {
+    loop: true,
+    keys: [
+      [2, { bob: 2, sx: 1.02, sy: 0.97, head: 0.12, mane: 0.14, tilt: -3, hair: -2.5, armL: 0.12, armR: -0.04 }],
+      [5, { bob: -2, head: 0.04, mane: 0.05, tilt: -1.5, hair: -1, armL: 0.05, armR: 0 }],
+      [2, { bob: 2, sx: 1.02, sy: 0.97, head: -0.12, mane: 0.14, tilt: 3, hair: 2.5, armL: -0.04, armR: 0.12 }],
+      [5, { bob: -2, head: -0.04, mane: 0.05, tilt: 1.5, hair: 1, armL: 0, armR: 0.05 }],
+    ],
+  },
+
+  // the same perched on a window: hands on the ledge, a leg kicking on each beat
+  grooveSit: {
+    loop: true,
+    keys: [
+      [2, { kickL: 0.3, kickR: -0.03, head: 0.12, mane: 0.14, tilt: -2, hair: -2, arms: -0.42 }],
+      [5, { kickL: 0.1, kickR: 0.05, head: 0.04, mane: 0.05, tilt: -1, hair: -1, arms: -0.42 }],
+      [2, { kickL: -0.03, kickR: 0.3, head: -0.12, mane: 0.14, tilt: 2, hair: 2, arms: -0.42 }],
+      [5, { kickL: 0.05, kickR: 0.1, head: -0.04, mane: 0.05, tilt: 1, hair: 1, arms: -0.42 }],
+    ],
+  },
+
   // leaning in from the edge of the screen, toward the middle
   peek: {
     loop: true,

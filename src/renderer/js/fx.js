@@ -382,8 +382,8 @@ export class FxLayer {
     this.add({ type: 'bolt', life, from, to, forks, width });
   }
 
-  glyph(x, y) {
-    this.add({ type: 'glyph', life: rand(900, 1400), x: x + rand(-40, 40), y, text: pick(GLYPHS), drift: rand(-12, 12) });
+  glyph(x, y, texts = GLYPHS) {
+    this.add({ type: 'glyph', life: rand(900, 1400), x: x + rand(-40, 40), y, text: pick(texts), drift: rand(-12, 12) });
   }
 
   // One shard coming loose from the mane and floating away, slowly, outward and up.
