@@ -3,9 +3,12 @@
 // windows.js for Linux (Hyprland): the same snapshot as windows.ps1, so the overlay doesn't know
 // the difference. Hyprland says where every window is and which one is in front; a title is only
 // matched against the AI names here (the "ai" keys), and never leaves. On top of what Windows
-// gives: `coding`, VSCodium (or Code) in front.
+// gives: `coding`, VSCodium (or Code) in front. USB sticks and devices plugged in come from udev.
 
 const fs = require('node:fs');
+const os = require('node:os');
+const readline = require('node:readline');
+const { spawn } = require('node:child_process');
 const hyprland = require('./hyprland');
 
 // Other AIs: a key, what gives them away in the title of the window in front, and in its class.
@@ -88,6 +91,27 @@ function snapshot({ clients, active, monitors, self, pathsOf = procPaths }) {
   };
 }
 
+// What kind of thing a USB device is, from the classes of its interfaces, in the words pc.js knows
+// from Windows (a phone first: they often show a drive too).
+const KINDS = [[/:06/, 'WPD'], [/:08/, 'DiskDrive'], [/:0e/i, 'Camera'], [/:01/, 'AudioEndpoint'], [/:03/, 'HIDClass']];
+
+// A USB device plugged in or out, from udev's properties: { in, name, class }, or null (its
+// interfaces, a hub, anything that isn't plugging).
+function plugFrom(props) {
+  if (props.DEVTYPE !== 'usb_device' || !['add', 'remove'].includes(props.ACTION)) return null;
+  const interfaces = props.ID_USB_INTERFACES || '';
+  if (/:09/.test(interfaces)) return null; // a hub
+  const name = (props.ID_MODEL_FROM_DATABASE || props.ID_MODEL?.replaceAll('_', ' ') || props.ID_VENDOR_FROM_DATABASE || '').trim();
+  return { in: props.ACTION === 'add', name, class: KINDS.find(([re]) => re.test(interfaces))?.[1] || '' };
+}
+
+// USB sticks and cards: what's mounted under /run/media/<you> (or /media/<you>), by its label
+function usbDrives(mounts, user) {
+  const under = new RegExp(`^/(?:run/)?media/${user}/([^/]+)$`);
+  return mounts.split('\n').map((line) => under.exec(line.split(' ')[1] || '')?.[1]).filter(Boolean)
+    .map((label) => label.replace(/\\(\d{3})/g, (_m, oct) => String.fromCharCode(Number.parseInt(oct, 8))));
+}
+
 // The middle of a window just opened, from its address as Hyprland's event gives it (no 0x), if she
 // can see it.
 function openedAt(wins, address) {
@@ -106,6 +130,9 @@ function startLinuxWindowWatch({ overlay, onUpdate, onOpen }) {
   let front = null;
   let timer = 0;
   let opened = null; // the address of a window just opened, until it's been seen
+  let plug = null;   // the last device plugged in or out, numbered as windows.ps1 does
+  let plugs = 0;
+  const user = os.userInfo().username;
 
   const send = () => {
     if (!last || overlay.isDestroyed()) return;
@@ -122,6 +149,8 @@ function startLinuxWindowWatch({ overlay, onUpdate, onOpen }) {
     // her own window taking the pointer isn't you going to another window
     if (active?.address !== self) front = active?.address ? active : null;
     const snap = snapshot({ clients, active: front, monitors, self });
+    snap.usb = usbDrives(fs.readFileSync('/proc/mounts', 'utf8'), user);
+    snap.plug = plug;
     const at = opened && openedAt(snap.wins, opened);
     if (at) {
       opened = null;
@@ -148,8 +177,28 @@ function startLinuxWindowWatch({ overlay, onUpdate, onOpen }) {
   });
   const every = setInterval(look, 2000);
   look();
+
+  // udev: each event a block of KEY=VALUE lines, ending with an empty one
+  const udev = spawn('udevadm', ['monitor', '--udev', '--property', '--subsystem-match=usb'], { stdio: ['ignore', 'pipe', 'ignore'] });
+  udev.on('error', (err) => console.error('[capri] udev:', err.message));
+  let props = {};
+  readline.createInterface({ input: udev.stdout }).on('line', (line) => {
+    const at = line.indexOf('=');
+    if (at > 0) {
+      props[line.slice(0, at)] = line.slice(at + 1);
+      return;
+    }
+    if (line.trim()) return; // the event's header line
+    const p = plugFrom(props);
+    props = {};
+    if (!p) return;
+    plug = { n: ++plugs, ...p };
+    look();
+  });
+
   return {
     stop() {
+      udev.kill();
       events.stop();
       clearInterval(every);
       clearTimeout(timer);
@@ -158,4 +207,4 @@ function startLinuxWindowWatch({ overlay, onUpdate, onOpen }) {
   };
 }
 
-module.exports = { snapshot, openedAt, startLinuxWindowWatch };
+module.exports = { snapshot, openedAt, plugFrom, usbDrives, startLinuxWindowWatch };

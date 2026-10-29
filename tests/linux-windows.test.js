@@ -75,3 +75,31 @@ test('a window just opened: the middle of it, found by the address in the event 
   assert.deepEqual(openedAt(s.wins, 'c0'), { x: 1321 + 604, y: 31 + 350 });
   assert.equal(openedAt(s.wins, 'd0'), null); // on another workspace: not seen
 });
+
+test('something plugged in over USB: its name and the kind of thing it is', () => {
+  const { plugFrom } = require('../src/main/linux-windows');
+  const pad = { ACTION: 'add', DEVTYPE: 'usb_device', ID_MODEL_FROM_DATABASE: 'DualSense wireless controller (PS5)', ID_USB_INTERFACES: ':010100:010200:030000:' };
+  assert.deepEqual(plugFrom(pad), { in: true, name: 'DualSense wireless controller (PS5)', class: 'AudioEndpoint' });
+  const phone = { ACTION: 'remove', DEVTYPE: 'usb_device', ID_MODEL: 'Pixel_8', ID_USB_INTERFACES: ':060101:ff4201:' };
+  assert.deepEqual(plugFrom(phone), { in: false, name: 'Pixel 8', class: 'WPD' });
+  const stick = { ACTION: 'add', DEVTYPE: 'usb_device', ID_VENDOR_FROM_DATABASE: 'Kingston', ID_USB_INTERFACES: ':080650:' };
+  assert.equal(plugFrom(stick).class, 'DiskDrive');
+});
+
+test('not a device plugged in or out: its interfaces, a hub, a bind', () => {
+  const { plugFrom } = require('../src/main/linux-windows');
+  assert.equal(plugFrom({ ACTION: 'add', DEVTYPE: 'usb_interface', ID_MODEL: 'x' }), null);
+  assert.equal(plugFrom({ ACTION: 'add', DEVTYPE: 'usb_device', ID_MODEL: 'Hub', ID_USB_INTERFACES: ':090000:' }), null);
+  assert.equal(plugFrom({ ACTION: 'bind', DEVTYPE: 'usb_device', ID_MODEL: 'x' }), null);
+});
+
+test('USB sticks: the ones mounted under /run/media/<you>, by their label', () => {
+  const { usbDrives } = require('../src/main/linux-windows');
+  const mounts = [
+    '/dev/nvme0n1p2 / btrfs rw 0 0',
+    '/dev/sdb1 /run/media/ren/KINGSTON vfat rw 0 0',
+    '/dev/sdc1 /run/media/ren/My\\040Photos exfat rw 0 0',
+    '/dev/sdd1 /run/media/other/THEIRS vfat rw 0 0',
+  ].join('\n');
+  assert.deepEqual(usbDrives(mounts, 'ren'), ['KINGSTON', 'My Photos']);
+});
