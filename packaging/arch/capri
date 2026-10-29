@@ -1,0 +1,3 @@
+#!/bin/sh
+# Capri on Arch's Electron 44: the app folder is all it needs
+exec electron44 /usr/lib/capri-desktop "$@"

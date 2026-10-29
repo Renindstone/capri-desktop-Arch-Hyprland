@@ -1,4 +1,4 @@
-**English** · [Français](README.fr.md)
+**English** · [Français](README.fr.md) · [Español (Arch + Hyprland)](README.es.md)
 
 # Capri
 
@@ -299,6 +299,24 @@ Keep that terminal open while she runs. Not tested on macOS or Linux yet: she sh
 (sitting on your windows, possessing them, showing Claude's answer when you're elsewhere) are Windows-only, and on Linux
 the transparent overlay works best on X11 (Wayland can struggle with click-through windows).
 
+### Arch Linux with Hyprland (this fork)
+
+This fork runs her on Arch Linux under Hyprland (Wayland), tested on CachyOS with Hyprland 0.56. She floats over your
+windows on every workspace and lets your clicks through, sits on your windows, and her menu lives in your bar's tray.
+On top of what she does on Windows, she dances while [Pear](https://github.com/pear-devs/pear-desktop) plays music,
+works along when VSCodium (or Code) is in front, and reacts when you change the volume or open an app.
+
+```bash
+git clone https://github.com/Renindstone/capri-desktop.git
+cd capri-desktop/packaging/arch
+makepkg -si
+```
+
+That installs `capri` on Arch's own Electron (`electron44`), with `playerctl`, `wireplumber`, `libpulse` and `grim`.
+Start her from your app launcher or with `capri`; her menu › **Start with …** starts her with your session
+(`~/.config/autostart`). Nothing in your Hyprland config is touched: her window rules are added on the fly through
+Hyprland's socket, and again after a config reload. How it works: [`docs/superpowers/specs`](docs/superpowers/specs).
+
 ### Hook her up to Claude Code by hand
 
 Right-click Capri, then **Install Claude Code hooks**. Or from the command line:
@@ -377,7 +395,7 @@ named like this (`.mp3`, `.wav`, `.ogg` or `.m4a`):
 
 ## FAQ
 
-- **Mac, Linux?** No installer yet, but you can run her from the source (see above).
+- **Mac, Linux?** On Arch with Hyprland, this fork has a package (see above). Elsewhere, from the source.
 - **Phone, Android?** No, she needs a desktop.
 - **Other assistants?** Claude Code, Codex and Antigravity: her menu › **Watch**. Cursor, Windsurf and Gemini CLI: not yet.
 - **Ollama?** Two ways. Claude Code running on a local model through Ollama (`ollama launch claude`): she sees it like

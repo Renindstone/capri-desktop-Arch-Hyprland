@@ -7,3 +7,9 @@ Thumbs.db
 
 # local debug captures
 captures/
+
+# makepkg (packaging/arch)
+packaging/arch/src/
+packaging/arch/pkg/
+packaging/arch/capri-desktop/
+packaging/arch/*.pkg.tar.*

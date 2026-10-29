@@ -1,0 +1,40 @@
+# Capri for Arch Linux, on the system's Electron. Built from this fork's main branch on GitHub:
+#   cd packaging/arch && makepkg -si
+pkgname=capri-desktop-git
+_name=capri-desktop
+pkgver=0.4.4
+pkgrel=1
+pkgdesc='Capri, the Project Capricorn construct, living on your desktop and narrating what Claude Code is doing (Hyprland fork)'
+arch=('any')
+url='https://github.com/Renindstone/capri-desktop'
+license=('LicenseRef-PolyForm-Noncommercial-1.0.0')
+depends=('electron44' 'nodejs' 'playerctl' 'wireplumber' 'libpulse' 'grim' 'glib2' 'systemd')
+makedepends=('git' 'npm')
+optdepends=('hyprland: floating over your windows, letting clicks through, sitting on them'
+            'ollama: her chat on your own PC')
+provides=("$_name")
+conflicts=("$_name")
+source=("$_name::git+$url.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd "$_name"
+  printf '%s.r%s.%s' "$(node -p "require('./package.json').version")" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+  cd "$_name"
+  # only her fonts: Electron is the system's (electron44)
+  npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+}
+
+package() {
+  cd "$_name"
+  local lib="$pkgdir/usr/lib/$_name"
+  install -d "$lib"
+  cp -r src assets hooks scripts package.json node_modules "$lib/"
+  install -Dm755 packaging/arch/capri "$pkgdir/usr/bin/capri"
+  install -Dm644 packaging/arch/capri.desktop "$pkgdir/usr/share/applications/capri.desktop"
+  install -Dm644 assets/icons/capri.png "$pkgdir/usr/share/icons/hicolor/256x256/apps/capri.png"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

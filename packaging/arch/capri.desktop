@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Capri
+Comment=Capri, the Project Capricorn construct, on your desktop
+Exec=capri
+Icon=capri
+Terminal=false
+Categories=Utility;
+StartupWMClass=capri-desktop
