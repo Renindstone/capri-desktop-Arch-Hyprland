@@ -510,11 +510,20 @@ async function boot() {
   // glance at another window), checked again every second for that
   const mood = { music: new Held(5000), coding: new Held(10000) };
   const moodNow = { music: false, coding: false };
+  let pearPlaying = false;
+  let dances = config.music !== false; // her menu › Dance to the music
   const applyMood = () => {
+    moodNow.music = pearPlaying && dances;
     const now = Date.now();
     capri.setMood({ music: mood.music.set(moodNow.music, now), coding: mood.coding.set(moodNow.coding, now) });
   };
   setInterval(applyMood, 1000);
+  const onMedia = (media) => {
+    pearPlaying = Boolean(media?.playing);
+    applyMood();
+  };
+  host.onMedia?.(onMedia);
+  host.mediaNow?.().then(onMedia);
 
   host.onClaudeEvent((evt) => brain.handle(evt));
   host.onWindows((data) => {
@@ -612,6 +621,8 @@ async function boot() {
     followOn = cfg.follow !== false;
     look.configure(cfg);
     pc.enabled = cfg.pcReact !== false;
+    dances = cfg.music !== false;
+    applyMood();
     wantsOut = cfg.visible !== false;
     reminders.sync(cfg.reminders); // one may have been cancelled from her menu
     capri.wander = cfg.wander;
@@ -683,9 +694,8 @@ async function boot() {
       case 'bond': // --dev: sync points from a source (as if earned)
         bond.add(cmd.source || 'chat', cmd.n || 1);
         break;
-      case 'music': // --dev: as if music started (on) or stopped playing
-        moodNow.music = cmd.on !== false;
-        applyMood();
+      case 'music': // --dev: as if Pear started (on) or stopped playing
+        onMedia({ playing: cmd.on !== false });
         break;
       case 'rearmed': // a new mouse hook (main.js): click-through until the pointer comes over her again
         mouse = null;

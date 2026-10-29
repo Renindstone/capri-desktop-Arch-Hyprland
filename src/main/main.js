@@ -15,6 +15,7 @@ const { TRAY, LANGS } = require('./labels');
 const { createBridge } = require('./bridge');
 const { startWindowWatch } = require('./windows');
 const hyprland = require('./hyprland');
+const { startMediaWatch } = require('./media');
 const llm = require('./llm');
 const ollama = require('./ollama');
 const setup = require('./setup');
@@ -54,6 +55,8 @@ let tray = null;
 let trayMenu = null; // also what she opens when you right-click her
 let demoTimer = null;
 let windowWatch = null;
+let mediaWatch = null; // Pear playing music (Linux)
+let lastMedia = { playing: false };
 // the watcher only speaks when something changes: the overlay asks for this when it (re)loads
 let lastWindows = null;
 let chatModels = null; // the provider's models, as last seen (null: not reached)
@@ -435,6 +438,7 @@ function rebuildTray() {
     { label: t.possess, type: 'checkbox', checked: cfg.possess, click: (item) => updateConfig({ possess: item.checked }) },
     { label: t.jealous, type: 'checkbox', checked: cfg.jealous !== false, click: (item) => updateConfig({ jealous: item.checked }) },
     { label: t.pcReact, type: 'checkbox', checked: cfg.pcReact !== false, click: (item) => updateConfig({ pcReact: item.checked }) },
+    ...(process.platform === 'linux' ? [{ label: t.music, type: 'checkbox', checked: cfg.music !== false, click: (item) => updateConfig({ music: item.checked }) }] : []),
     {
       // she asks first (what she'll send where), then turns it on herself
       label: t.lookAuto, type: 'checkbox', checked: Boolean(cfg.watchScreen),
@@ -773,6 +777,7 @@ function registerIpc() {
   ipcMain.handle('claude:found', () => fs.existsSync(path.dirname(activeHooks().status().file))); // Claude Code keeps its settings there
   ipcMain.on('claude:help', () => shell.openExternal(activeAssistant().help));
   ipcMain.handle('windows:get', () => lastWindows);
+  ipcMain.handle('media:get', () => lastMedia);
   // talking to her (chat.js): is Ollama there, with a model to talk with
   ipcMain.handle('chat:status', async () => {
     const cfg = config.load(true); // keys may have been edited by hand
@@ -1103,6 +1108,14 @@ function main() {
         overlay?.webContents.send('windows:update', data);
       },
     });
+    if (process.platform === 'linux') {
+      mediaWatch = startMediaWatch({
+        onChange: (media) => {
+          lastMedia = media;
+          overlay?.webContents.send('media:update', media);
+        },
+      });
+    }
     createBridge({
       port: PORT,
       // her own Claude Code chat's hooks would cover its answer with theirs
@@ -1131,6 +1144,7 @@ function main() {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
     windowWatch?.stop();
+    mediaWatch?.stop();
     hypr?.stop();
   });
   app.on('window-all-closed', (e) => e.preventDefault());
