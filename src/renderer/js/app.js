@@ -29,8 +29,10 @@ function loadImage(src) {
 
 // close-ups of her for the cut-ins, frames of the show (tools/build-cutins.py)
 const CUTINS = ['grin', 'laugh', 'eyes', 'many', 'look'];
-const WATCH_MS = 2000; // how often she checks the pointer still reaches her
-const FOLLOW_AFTER = 2; // checks in a row with the pointer on another screen before she follows it there
+// how often she checks the pointer still reaches her; on Linux it's how she learns it came over her
+// at all, her window letting it through until then
+const WATCH_MS = host.platform === 'linux' ? 100 : 2000;
+const FOLLOW_AFTER = 4000 / WATCH_MS; // checks in a row with the pointer on another screen before she follows it there
 const AWAY_MS = 15 * 60 * 1000; // the pointer still this long: you were away from your PC
 const SNOOZE_MS = 10 * 60 * 1000;
 

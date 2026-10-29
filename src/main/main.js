@@ -14,6 +14,7 @@ const config = require('./config');
 const { TRAY, LANGS } = require('./labels');
 const { createBridge } = require('./bridge');
 const { startWindowWatch } = require('./windows');
+const hyprland = require('./hyprland');
 const llm = require('./llm');
 const ollama = require('./ollama');
 const setup = require('./setup');
@@ -37,6 +38,7 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 let overlay = null;
+let hypr = null; // her window in Hyprland (Linux): hyprland.js
 let tray = null;
 let trayMenu = null; // also what she opens when you right-click her
 let demoTimer = null;
@@ -169,6 +171,7 @@ function raiseOverlay() {
 }
 
 function createOverlay() {
+  if (hyprland.active) hypr = hyprland.overlay(overlayArea().area);
   overlay = new BrowserWindow({
     ...overlayArea().area,
     transparent: true,
@@ -200,9 +203,11 @@ function createOverlay() {
   overlay.loadURL('capri://app/src/renderer/index.html');
   // always shown: put away, she's still there as her biochip in the corner. Sized again first:
   // Windows keeps a new window inside the work area, and resting on the taskbar it covers it too.
-  overlay.once('ready-to-show', () => {
+  overlay.once('ready-to-show', async () => {
+    await hypr?.ready; // Hyprland's rule for her window, in before it opens
     fitOverlay();
     overlay.showInactive();
+    hypr?.attach();
   });
   overlay.webContents.on('render-process-gone', (_e, details) => {
     console.error('[capri] renderer gone:', details.reason);
@@ -676,10 +681,12 @@ function createTray() {
 function registerIpc() {
   ipcMain.on('overlay:interactive', (_e, on) => {
     overlay?.setIgnoreMouseEvents(!on, { forward: true });
+    hypr?.interactive(on);
   });
-  ipcMain.on('overlay:rearm', () => rearmOverlay()); // the pointer moved over her and she never heard of it
-  ipcMain.handle('overlay:cursor', () => {
-    const p = screen.getCursorScreenPoint();
+  // the pointer moved over her and she never heard of it (in Hyprland that's how it always is: no hook to set up again)
+  ipcMain.on('overlay:rearm', () => !hypr && rearmOverlay());
+  ipcMain.handle('overlay:cursor', async () => {
+    const p = hypr ? await hypr.cursor() : screen.getCursorScreenPoint();
     const b = overlay.getBounds();
     const inside = p.x >= b.x && p.y >= b.y && p.x < b.x + b.width && p.y < b.y + b.height;
     return { x: p.x - b.x, y: p.y - b.y, inside, display: displayAt(p).id };
@@ -859,6 +866,7 @@ function registerIpc() {
     overlay.setFocusable(Boolean(on));
     if (on) overlay.focus();
     else overlay.blur();
+    hypr?.focus(Boolean(on));
   });
   // her report card's copy button: a picture of that part of the overlay, on the clipboard
   ipcMain.handle('panel:copy', async (_e, rect) => {
@@ -1069,6 +1077,7 @@ function main() {
   app.on('will-quit', () => {
     globalShortcut.unregisterAll();
     windowWatch?.stop();
+    hypr?.stop();
   });
   app.on('window-all-closed', (e) => e.preventDefault());
 }
