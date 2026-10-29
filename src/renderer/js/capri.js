@@ -1217,6 +1217,12 @@ export class Capri {
     await tween(p, { glitch: 0, split: 0 }, 220, ease.out);
   }
 
+  // Taking you to a window (her chat, "take me to…", Linux): out of here, and in front of it.
+  travelTo(win) {
+    const side = 150 * this.scale + 30;
+    return this.teleport({ x: clamp(win.x + win.w / 2, side, this.view.w - side), y: this.floor });
+  }
+
   // Leave in a column of light, reappear somewhere else.
   async teleport(to, opts = {}) {
     if (this.stowed) return; // put away: she stays in her biochip

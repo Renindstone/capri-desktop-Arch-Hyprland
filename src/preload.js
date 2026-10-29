@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld('host', {
   closeApp: (name, force) => ipcRenderer.invoke('apps:close', { name, force: Boolean(force) }),
   findLaunch: (text) => ipcRenderer.invoke('apps:findLaunch', text),
   launch: (item) => ipcRenderer.invoke('apps:launch', item),
+  goTo: (name) => ipcRenderer.invoke('apps:goto', name),
   media: (action) => ipcRenderer.invoke('apps:media', action),
   music: (query) => ipcRenderer.invoke('apps:music', query),
   youtube: (query) => ipcRenderer.invoke('apps:youtube', query),

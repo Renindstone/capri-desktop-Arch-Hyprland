@@ -147,4 +147,65 @@ function grab({ scale = 1, quality = 0 } = {}) {
 // a launcher (a desktop entry, on your desktop or anywhere): an app to start, not a file to open
 const isLauncher = (file) => /\.desktop$/i.test(file);
 
-module.exports = { isLauncher, parseDesktopEntry, desktopEntries, appsFrom, listApps, closeApp, media, launchEntry, grab };
+const simple = (text) => String(text || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+
+// How well a window's app answers to `key` (simple()): by its class, the last part of a reverse-DNS
+// one (com.anthropic.Claude), or its desktop entry; 0 if not at all.
+function nameScore(c, key, entries) {
+  const cls = (c.class || '').toLowerCase();
+  const entry = entries.find((e) => e.wmClass.toLowerCase() === cls || e.fileId.toLowerCase() === cls);
+  const names = [cls, cls.split('.').at(-1), entry?.name, entry?.fileId].map(simple).filter(Boolean);
+  if (names.includes(key)) return 3;
+  if (names.some((n) => n.startsWith(key) || key.startsWith(n))) return 2;
+  if (key.length >= 3 && names.some((n) => n.includes(key))) return 1;
+  return 0;
+}
+
+// The window of the app you named to take you to ("llévame a brave"), from where you are
+// (`current`: your workspace, the window you're in). Your order: a special workspace first, then the
+// nearest workspace (yours is the nearest), then the one you used last. Already in that app, she
+// takes you to another of its windows the same way, the ones in your workspace last.
+// { win, here }: here, you're in its only window.
+function pickWindow({ clients, entries, query, current }) {
+  const key = simple(query);
+  if (key.length < 2) return { win: null, here: false };
+  const scored = clients.filter((c) => c.class !== 'capri-desktop' && c.pid !== process.pid).map((c) => [nameScore(c, key, entries), c]);
+  const best = Math.max(0, ...scored.map(([s]) => s));
+  const app = scored.filter(([s]) => best && s === best).map(([, c]) => c);
+  const inIt = app.some((c) => c.address === current.address);
+  const others = app.filter((c) => c.address !== current.address);
+  if (!others.length) return { win: null, here: inIt };
+  const rank = (c) => {
+    const ws = c.workspace.id;
+    if (ws < 0) return [0, 0];
+    if (ws === current.ws) return [inIt ? 2 : 1, 0];
+    return [1, Math.abs(ws - current.ws)];
+  };
+  others.sort((a, b) => {
+    const [ga, da] = rank(a);
+    const [gb, db] = rank(b);
+    return ga - gb || da - db || a.workspace.id - b.workspace.id || a.focusHistoryID - b.focusHistoryID;
+  });
+  return { win: others[0], here: false };
+}
+
+// Takes you there: Hyprland focuses that window, showing its workspace (a special one too) and
+// bringing the pointer onto it. Where you are: what the screen shows, and the last window you were in
+// before her chat took the keyboard. { ok, name, win: { x, y, w, h } } or { ok: false, why }.
+async function goTo(query) {
+  if (!hyprland.active) return { ok: false, why: 'unsupported' };
+  const [clients, monitors] = await Promise.all([hyprland.json('clients'), hyprland.json('monitors')]);
+  const screen = monitors.find((m) => m.focused) || monitors[0];
+  const last = clients.filter((c) => c.class !== 'capri-desktop' && c.pid !== process.pid)
+    .sort((a, b) => a.focusHistoryID - b.focusHistoryID)[0];
+  const entries = desktopEntries();
+  const current = { ws: screen?.specialWorkspace?.id || screen?.activeWorkspace?.id, address: last?.address };
+  const { win, here } = pickWindow({ clients, entries, query, current });
+  if (!win) return { ok: false, why: here ? 'here' : 'none' };
+  await hyprland.lua(`hl.dispatch(hl.dsp.focus({ window = "address:${win.address}" }))`);
+  const cls = win.class.toLowerCase();
+  const entry = entries.find((e) => e.wmClass.toLowerCase() === cls || e.fileId.toLowerCase() === cls);
+  return { ok: true, name: entry?.name || win.class.split('.').at(-1), win: { x: win.at[0], y: win.at[1], w: win.size[0], h: win.size[1] } };
+}
+
+module.exports = { pickWindow, goTo, isLauncher, parseDesktopEntry, desktopEntries, appsFrom, listApps, closeApp, media, launchEntry, grab };

@@ -27,6 +27,14 @@ Probado en CachyOS con Hyprland 0.56 (Wayland), un monitor y el panel Caelestia.
 - **Su menú** está en el icono de tu barra (clic derecho). Cada opción muestra ☑/☐ o ◉/○ según esté activa, porque
   algunas barras, como la de Caelestia, no dibujan las casillas. "Iniciar con CachyOS" la arranca con tu sesión.
 - **Desde su chat** abre y cierra apps, controla la música y el volumen, busca archivos y hace capturas.
+- **"Llévame a…"** (por ejemplo, "llévame a brave" o "llévame a claude"): te lleva a la ventana de esa app, si está
+  abierta, y ella va contigo. Si la app tiene varias ventanas, elige así:
+  1. primero una que esté en un espacio especial (Super+S, Super+M, Super+D…);
+  2. después la del escritorio más cercano (el tuyo cuenta como el más cercano);
+  3. si hay varias en el mismo escritorio, la que usaste por última vez.
+
+  Si ya estás en esa app, te lleva a otra de sus ventanas con el mismo orden, y deja para el final las de tu
+  escritorio.
 
 ## Instalar
 

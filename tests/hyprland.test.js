@@ -92,3 +92,17 @@ test('after a config reload her window lets the pointer through again, even if h
   refuseRule = false;
   assert.equal(passing(), '1');
 });
+
+test('taken to another window from her chat, closing the chat leaves you there', async (t) => {
+  const o = hyprland.overlay(AREA);
+  t.after(() => o.stop());
+  await o.ready;
+  await o.attach();
+  await o.focus(true); // the chat takes the keyboard from 0xdef
+  await wait(50);
+  o.forgetFocus(); // she took you somewhere else
+  asked.length = 0;
+  await o.focus(false);
+  await wait(50);
+  assert.ok(!asked.some((a) => a.includes('address:0xdef')), 'gave the keyboard back to where you were');
+});

@@ -939,6 +939,15 @@ function registerIpc() {
     return shell.openExternal(`https://www.google.com/search?q=${encodeURIComponent(q)}`).then(() => true, () => false);
   });
   ipcMain.handle('apps:launch', (_e, item) => launch.launch(item).then(() => ({ ok: true }), (err) => ({ ok: false, error: err.message })));
+  // "take me to…" (Linux): that app's window comes up, she goes to it, and closing her chat leaves you there
+  ipcMain.handle('apps:goto', async (_e, name) => {
+    if (process.platform !== 'linux') return { ok: false, why: 'unsupported' };
+    const res = await require('./linux-apps').goTo(String(name || '')).catch(() => ({ ok: false, why: 'none' }));
+    if (!res.ok) return res;
+    hypr?.forgetFocus();
+    const b = overlay.getBounds();
+    return { ...res, win: { ...res.win, x: res.win.x - b.x, y: res.win.y - b.y } };
+  });
   ipcMain.handle('apps:media', (_e, action) => {
     volumeWatch?.ignoreFor(2000); // her doing, when you asked her: not something to react to
     return launch.media(action);

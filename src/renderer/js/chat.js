@@ -30,6 +30,16 @@ const CLOSE_ASK = /\b(close|shut|quit|kill|exit)|ferm|quitt|coupe|arr[êe]t|cier
 // her other tags: [[open: Spotify]], [[music: Bad Bunny]], [[media: next]], [[site: youtube.com]]
 const TAG = /\[\[\s*(open|music|media|site)\s*:\s*([^\]]*)\]\]/i;
 // "open", "launch", "ouvre", "lance", "abre", "открой"... in any of her languages
+// "llévame a claude", "take me to brave", "emmène-moi à discord": the app whose window she takes
+// you to (Linux, Hyprland: linux-apps.js goTo)
+const GO_ASK = /(?:ll[eé]vame|take me|bring me|emm[eè]ne[- ]moi|am[eè]ne[- ]moi|me leva|leva[- ]me|отведи меня|перенеси меня)\s+(?:al|a|à|au|aux|to|para|pro|pra|ao|hasta|к|в)\s+(?:la ventana de\s+|la fenêtre de\s+|the window of\s+|a janela d[oe]\s+|окно\s+|el\s+|la\s+|le\s+|the\s+|o\s+)?(.+)$/iu;
+const POLITE_END = /[\s,]*(?:por favor|please|pls|s['’]il te pla[iî]t|svp|пожалуйста)?[\s.!?¡¿,]*$/iu;
+
+export function goTarget(text) {
+  const name = GO_ASK.exec(String(text || '').trim())?.[1]?.replace(POLITE_END, '').trim();
+  return name || null;
+}
+
 const OPEN_ASK = /\b(open|launch|start|run)\b|ouvr|lance|démarre|abre|abrir|inicia|ejecuta|executa|открой|запусти/i;
 // what to do with the music playing, said plainly (only when it's about music, or said in a few words)
 const MEDIA_ASK = [
@@ -410,6 +420,8 @@ export class Chat {
     const memo = MEMO_ASK.exec(text)?.[1]?.trim();
     if (memo) return { kind: 'memo', text: memo };
     if (this.look && LOOK_ASK.test(text)) return { kind: 'look' };
+    const go = goTarget(text);
+    if (go) return { kind: 'goto', name: go };
     if (SHOT_ASK.test(text)) return { kind: 'shot' };
     const roblox = robloxGame(text);
     if (roblox) return { kind: 'roblox', game: roblox };
@@ -465,6 +477,7 @@ export class Chat {
       this.host.setConfig({ memories: custom.memories });
       return { line: this.brain.t.custom.remembered, face: 'smug' };
     }
+    if (asked.kind === 'goto') return this.goTo(asked.name);
     if (asked.kind === 'media') {
       this.capri.pulse();
       return (await this.host.media(asked.action)) ? { line: t.media[asked.action], face: 'smug' } : null;
@@ -671,6 +684,17 @@ export class Chat {
   }
 
   // "close am music pls": an app that's open, named in a message asking to close something.
+  // Takes you to that app's window (Hyprland shows it, the pointer on it), and she's there too.
+  // Elsewhere than Linux, null: her AI answers instead.
+  async goTo(name) {
+    const t = this.t.goto;
+    const res = await this.host.goTo(name).catch(() => null);
+    if (!res || res.why === 'unsupported') return null;
+    if (!res.ok) return { line: fmt(pick(res.why === 'here' ? t.here : t.none), { name }), face: 'aside' };
+    this.capri.travelTo(res.win);
+    return { line: fmt(pick(t.going), { name: res.name }), face: 'smug' };
+  }
+
   askedToClose(text) {
     if (!CLOSE_ASK.test(text)) return null;
     const said = simple(text);

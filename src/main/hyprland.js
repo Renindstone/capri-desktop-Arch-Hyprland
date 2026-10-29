@@ -111,6 +111,10 @@ function overlay(area) {
       await dispatch(`hl.dsp.focus({ window = "address:${address}" })`);
       return update();
     },
+    // she took you to another window (her chat, "take me to…"): closing the chat leaves you there
+    forgetFocus() {
+      gaveBack = null;
+    },
     // her page reloaded, gone or stuck: nothing will say the pointer left her, so it goes through
     release() {
       interactive = false;

@@ -100,6 +100,7 @@ export const LINES = {
       showFolder: 'Voir le dossier', shot: 'Capture faite : {name} (dans Images › Screenshots).',
       folderOpened: 'Voilà son dossier : {name}.',
       folders: { explorer: 'L’explorateur', recycle: 'La corbeille', downloads: 'Tes téléchargements', desktop: 'Ton bureau', documents: 'Tes documents', pictures: 'Tes images', music: 'Ta musique', videos: 'Tes vidéos' },
+      goto: { going: ['On va sur {name}.', 'Direction {name}.'], none: ['Je ne vois pas {name} ouvert.'], here: ['Tu es déjà sur {name}.'] }, // Linux
       media: { pause: 'Pause.', play: 'Ça repart.', next: 'Suivante.', previous: 'Précédente.', volup: 'Plus fort.', voldown: 'Moins fort.', mute: 'J’ai appuyé sur muet.' },
     },
     // sa carte de rapport : ce que Claude a abattu aujourd'hui (son menu, ou d'elle-même le soir)
@@ -452,6 +453,7 @@ export const LINES = {
       showFolder: 'Show the folder', shot: 'Screenshot taken: {name} (in Pictures › Screenshots).',
       folderOpened: 'Here’s its folder: {name}.',
       folders: { explorer: 'File Explorer', recycle: 'The recycle bin', downloads: 'Your downloads', desktop: 'Your desktop', documents: 'Your documents', pictures: 'Your pictures', music: 'Your music', videos: 'Your videos' },
+      goto: { going: ['Off to {name}.', 'Taking you to {name}.'], none: ['I don’t see {name} open.'], here: ['You’re already in {name}.'] }, // Linux
       media: { pause: 'Paused.', play: 'Playing.', next: 'Next one.', previous: 'Previous one.', volup: 'Louder.', voldown: 'Quieter.', mute: 'Hit mute.' },
     },
     // her report card: what Claude got through today (her menu, or on her own in the evening)
@@ -803,6 +805,7 @@ export const LINES = {
       showFolder: 'Ver la carpeta', shot: 'Captura hecha: {name} (en Imágenes › Screenshots).',
       folderOpened: 'Aquí está su carpeta: {name}.',
       folders: { explorer: 'El explorador', recycle: 'La papelera', downloads: 'Tus descargas', desktop: 'Tu escritorio', documents: 'Tus documentos', pictures: 'Tus imágenes', music: 'Tu música', videos: 'Tus vídeos' },
+      goto: { going: ['Vamos a {name}.', 'Te llevo a {name}.'], none: ['No veo {name} abierto.'], here: ['Ya estás en {name}.'] }, // Linux
       media: { pause: 'Pausa.', play: 'Sigue sonando.', next: 'Siguiente.', previous: 'Anterior.', volup: 'Más alto.', voldown: 'Más bajo.', mute: 'Le di a silenciar.' },
     },
     // su informe: lo que Claude sacó hoy (su menú, o ella sola por la tarde)
@@ -1153,6 +1156,7 @@ export const LINES = {
       showFolder: 'Ver a pasta', shot: 'Captura feita: {name} (em Imagens › Screenshots).',
       folderOpened: 'Aqui tá a pasta: {name}.',
       folders: { explorer: 'O explorador de arquivos', recycle: 'A lixeira', downloads: 'Seus downloads', desktop: 'Sua área de trabalho', documents: 'Seus documentos', pictures: 'Suas imagens', music: 'Suas músicas', videos: 'Seus vídeos' },
+      goto: { going: ['Indo para {name}.', 'Te levo para {name}.'], none: ['Não vejo {name} aberto.'], here: ['Você já está em {name}.'] }, // Linux
       media: { pause: 'Pausado.', play: 'Tocando.', next: 'Próxima.', previous: 'Anterior.', volup: 'Mais alto.', voldown: 'Mais baixo.', mute: 'Apertei o mudo.' },
     },
     // o relatório dela: o que o Claude fez hoje (o menu dela, ou sozinha à noite)
@@ -1503,6 +1507,7 @@ export const LINES = {
       showFolder: 'Показать папку', shot: 'Скриншот готов: {name} (в Изображения › Screenshots).',
       folderOpened: 'Вот его папка: {name}.',
       folders: { explorer: 'Проводник', recycle: 'Корзина', downloads: 'Твои загрузки', desktop: 'Твой рабочий стол', documents: 'Твои документы', pictures: 'Твои изображения', music: 'Твоя музыка', videos: 'Твои видео' },
+      goto: { going: ['Идём в {name}.', 'Веду тебя в {name}.'], none: ['Не вижу, чтобы {name} было открыто.'], here: ['Ты уже в {name}.'] }, // Linux
       media: { pause: 'Пауза.', play: 'Играет.', next: 'Следующий.', previous: 'Предыдущий.', volup: 'Громче.', voldown: 'Тише.', mute: 'Нажала «без звука».' },
     },
     // её отчёт: что Claude сделал за день (её меню, или сама вечером)
