@@ -31,7 +31,7 @@ const one = (ops, op, sources, target = null, name) => ops.plan({ op, splits: [{
 test('resolves relative, accents and case, bare folder names', async () => {
   const { ops } = setup();
   const p = await one(ops, 'move', ['descargas/pepito.mp4'], 'comercio');
-  assert.deepEqual([p.op, p.names, p.to, p.choices], ['move', ['pepito.mp4'], '~/Documentos/Comercio', ['~/Documentos/Comercio']]);
+  assert.deepEqual([p.op, p.names, p.to, p.choices], ['move', ['~/Descargas/pepito.mp4'], '~/Documentos/Comercio', ['~/Documentos/Comercio']]);
   assert.match(p.id, /\S/);
   assert.equal((await one(ops, 'copy', ['descargas/pepito.mp4'], 'imagenes')).to, '~/Imágenes');
   assert.equal((await one(ops, 'trash', ['~/Descargas/pepito.mp4'])).to, null);
@@ -40,13 +40,13 @@ test('resolves relative, accents and case, bare folder names', async () => {
 test('known folders by their English name', async () => {
   const { home, ops } = setup({ known: { downloads: null } });
   const ops2 = createFileOps({ home, trash: async () => {}, known: { downloads: path.join(home, 'Descargas') } });
-  assert.deepEqual((await one(ops2, 'trash', ['downloads/pepito.mp4'])).names, ['pepito.mp4']);
+  assert.deepEqual((await one(ops2, 'trash', ['downloads/pepito.mp4'])).names, ['~/Descargas/pepito.mp4']);
   assert.equal((await one(ops, 'trash', ['downloads/pepito.mp4'])).error, 'missing');
 });
 
 test('a bare source name is looked for too', async () => {
   const { ops } = setup();
-  assert.deepEqual((await one(ops, 'trash', ['pepito.mp4'])).names, ['pepito.mp4']);
+  assert.deepEqual((await one(ops, 'trash', ['pepito.mp4'])).names, ['~/Descargas/pepito.mp4']);
 });
 
 test('two folders with the same name: two choices', async () => {
@@ -61,9 +61,9 @@ test('first split that resolves wins', async () => {
   const { ops } = setup();
   const p = await ops.plan({ op: 'move', splits: [
     { sources: ['descargas/viaje a roma.mp4'], target: 'comercio' }, { sources: ['descargas/viaje'], target: 'roma.mp4 a comercio' }] });
-  assert.deepEqual(p.names, ['viaje a roma.mp4']);
+  assert.deepEqual(p.names, ['~/Descargas/viaje a roma.mp4']);
   const q = await ops.plan({ op: 'move', splits: [{ sources: ['descargas/viaje'], target: 'roma.mp4 a comercio' }, { sources: ['descargas/pepito.mp4'], target: 'comercio' }] });
-  assert.deepEqual(q.names, ['pepito.mp4']);
+  assert.deepEqual(q.names, ['~/Descargas/pepito.mp4']);
 });
 
 test('refusals', async () => {
@@ -89,7 +89,7 @@ test('refusals', async () => {
 test('rename and mkdir plans', async () => {
   const { ops } = setup();
   const r = await one(ops, 'rename', ['descargas/pepito.mp4'], null, 'juan.mp4');
-  assert.deepEqual([r.names, r.to], [['pepito.mp4'], 'juan.mp4']);
+  assert.deepEqual([r.names, r.to], [['~/Descargas/pepito.mp4'], 'juan.mp4']);
   const m = await one(ops, 'mkdir', [], 'documentos', 'Ventas');
   assert.deepEqual([m.names, m.to], [['Ventas'], '~/Documentos']);
   assert.equal((await one(ops, 'mkdir', [], null, 'Nueva')).to, '~');
@@ -178,4 +178,32 @@ test('a failed extraction leaves nothing behind', async () => {
   const r = await ops.run((await one(ops, 'extract', ['descargas/roto.zip'])).id);
   assert.equal(r.error, 'failed');
   assert.ok(!fs.existsSync(at(home, 'Descargas/roto')));
+});
+
+test('review: two sources with the same name never overwrite each other', async () => {
+  const { home, put, ops } = setup();
+  put('A/foto.png', 'a');
+  put('B/foto.png', 'b');
+  assert.deepEqual(await one(ops, 'move', ['A/foto.png', 'B/foto.png'], 'comercio'), { error: 'exists', name: 'foto.png' });
+  assert.equal((await one(ops, 'copy', ['A/foto.png', 'B/foto.png'], 'comercio')).error, 'exists');
+  assert.equal(fs.readFileSync(at(home, 'A/foto.png'), 'utf8'), 'a');
+});
+
+test('review: a name starting with - is a file to bsdtar, not an option', async () => {
+  const { home, put, ops } = setup();
+  put('Descargas/-rf.txt', 'x');
+  const r = await ops.run((await one(ops, 'compress', ['descargas/-rf.txt', 'descargas/pepito.mp4'])).id);
+  assert.equal(r.ok, true, r.message);
+  assert.match(execFileSync('bsdtar', ['-tf', r.path], { encoding: 'utf8' }), /-rf\.txt/);
+});
+
+test('review: the confirm line says where the files are', async () => {
+  const { ops } = setup();
+  assert.deepEqual((await one(ops, 'trash', ['pepito.mp4'])).names, ['~/Descargas/pepito.mp4']);
+});
+
+test('review: the refusal reported is the one about the trimmed name', async () => {
+  const { ops } = setup();
+  const p = await ops.plan({ op: 'trash', splits: [{ sources: ['este video descargas/nada.mp4'], target: null, raw: true }, { sources: ['descargas/nada.mp4'], target: null }] });
+  assert.deepEqual(p, { error: 'missing', name: 'descargas/nada.mp4' });
 });

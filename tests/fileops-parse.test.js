@@ -7,7 +7,13 @@ const { pathToFileURL } = require('node:url');
 
 // chat.js is a page module (util.js asks matchMedia as it loads): only its pure part, fileAsk, is used here
 globalThis.matchMedia ??= () => ({ matches: false });
-const load = () => import(pathToFileURL(path.join(__dirname, '../src/renderer/js/chat.js')).href);
+const loadRaw = () => import(pathToFileURL(path.join(__dirname, '../src/renderer/js/chat.js')).href);
+// the splits from your words as trimmed ("este zip", "la carpeta de" gone): the untrimmed ones are tried first, marked raw
+const clean = (ask) => ask && { op: ask.op, splits: ask.splits.filter((s) => !s.raw) };
+const load = async () => {
+  const m = await loadRaw();
+  return { ...m, fileAsk: (t) => clean(m.fileAsk(t)) };
+};
 
 test('the user\'s three phrases', async () => {
   const { fileAsk } = await load();
@@ -39,8 +45,10 @@ test('every op, Spanish and English', async () => {
 
 test('" a " inside a name: every split, last separator first', async () => {
   const { fileAsk } = await load();
-  assert.deepEqual(fileAsk('mueve viaje a roma.mp4 a comercio').splits.map((s) => [s.sources, s.target]),
-    [[['viaje a roma.mp4'], 'comercio'], [['viaje'], 'roma.mp4 a comercio']]);
+  assert.deepEqual(fileAsk('mueve viaje a roma.mp4 a la carpeta comercio').splits.map((s) => [s.sources, s.target]),
+    [[['viaje a roma.mp4'], 'comercio'], [['viaje'], 'roma.mp4 a la carpeta comercio']]);
+  // without a word about files, a split whose files don't look like files isn't one
+  assert.deepEqual(fileAsk('mueve viaje a roma.mp4 a comercio').splits.map((s) => [s.sources, s.target]), [[['viaje a roma.mp4'], 'comercio']]);
 });
 
 test('quotes, politeness, punctuation', async () => {
@@ -67,4 +75,30 @@ test('her file lines, in every language, with every op and every refusal', async
     assert.match(f.plan, /\{verb\}.*\{what\}.*\{to\}/, lang);
     assert.match(f.done, /\{path\}/, lang);
   }
+});
+
+const includes = (ask, split) => (ask?.splits || []).some(({ raw, ...s }) => JSON.stringify(s) === JSON.stringify(split));
+
+test('review: ordinary sentences are not file requests', async () => {
+  const { fileAsk } = await loadRaw();
+  for (const t of ['Move the meeting to Friday', 'mueve la reunión al viernes', 'pasa la pelota a juan', 'copia este texto en inglés',
+    'move on to the next topic', 'zip your lips', 'pasa esta canción a la siguiente']) assert.equal(fileAsk(t), null, t);
+});
+
+test('review: " y " inside a name gets its own split', async () => {
+  const { fileAsk } = await loadRaw();
+  assert.ok(includes(fileAsk('mueve tom y jerry.mp4 a comercio'), { sources: ['tom y jerry.mp4'], target: 'comercio' }));
+});
+
+test('review: the untrimmed name comes first, then the trimmed one', async () => {
+  const { fileAsk } = await loadRaw();
+  const s = fileAsk('borra fotos de verano.zip').splits.map((x) => x.sources);
+  assert.deepEqual(s, [['fotos de verano.zip'], ['verano.zip']]);
+});
+
+test('review: a new folder keeps its whole name, and " en " splits it cleanly', async () => {
+  const { fileAsk } = await loadRaw();
+  assert.deepEqual(fileAsk('crea una carpeta llamada Fotos de viaje').splits.map(({ raw, ...s }) => s), [{ sources: [], target: null, name: 'Fotos de viaje' }]);
+  assert.equal(fileAsk('crea la carpeta Las Vegas').splits[0].name, 'Las Vegas');
+  assert.equal(fileAsk('haz una carpeta llamada Fotos en documentos').splits.length, 1);
 });

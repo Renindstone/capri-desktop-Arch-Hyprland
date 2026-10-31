@@ -132,6 +132,10 @@ function createFileOps({ home, known = {}, trash, archiver = 'bsdtar', now = Dat
     if (op === 'extract' && !(await stat(sources[0]))?.isFile()) return refuse('notFolder', path.basename(sources[0]));
     if (op === 'mkdir' && !goodName(split.name)) return refuse('unclear');
     if ((op === 'move' || op === 'copy') && !split.target) return refuse('unclear');
+    // two files of the same name into one folder: the second would land on the first
+    const keep = sources.map((s) => path.basename(s));
+    const twin = (op === 'move' || op === 'copy') && keep.find((n, i) => keep.indexOf(n) !== i);
+    if (twin) return refuse('exists', twin);
 
     // where to: what you said, else home (a new folder) or next to the first file
     let places = split.target ? await resolve(split.target, true) : [op === 'mkdir' ? home : path.dirname(sources[0])];
@@ -173,10 +177,12 @@ function createFileOps({ home, known = {}, trash, archiver = 'bsdtar', now = Dat
   async function plan(ask) {
     if (!ask || !OPS.has(ask.op) || !Array.isArray(ask.splits)) return refuse('unclear');
     let first = null;
+    let trimmed = null; // what didn't work, said about your words without "este video" and the like
     for (const split of ask.splits) {
       const res = await build(ask.op, split);
       if (res.error) {
         first ??= res;
+        if (!split.raw) trimmed ??= res;
         continue;
       }
       const id = randomUUID();
@@ -184,12 +190,12 @@ function createFileOps({ home, known = {}, trash, archiver = 'bsdtar', now = Dat
       return {
         id,
         op: res.op,
-        names: res.op === 'mkdir' ? [res.name] : res.sources.map((s) => path.basename(s)),
+        names: res.op === 'mkdir' ? [res.name] : res.sources.map(shown), // where they are: a name found by search could be anywhere
         to: res.op === 'rename' ? res.name : res.targets.length ? shown(res.targets[0]) : null,
         choices: PLACED.has(res.op) ? res.targets.map(shown) : [],
       };
     }
-    return first || refuse('unclear');
+    return trimmed || first || refuse('unclear');
   }
 
   // The plan you clicked, once: everything checked again (something may have changed since), then done.
@@ -238,7 +244,8 @@ function createFileOps({ home, known = {}, trash, archiver = 'bsdtar', now = Dat
       const name = res.sources.length === 1 ? bare(path.basename(src)) : 'Archivos';
       const out = await free(path.join(dir, name), '.zip');
       made = out;
-      await tar(['-a', '-cf', out, ...res.sources.flatMap((s) => ['-C', path.dirname(s), path.basename(s)])]);
+      // "./name": a name like -rf or @x is a file, not an option; -s takes the ./ back off inside the zip
+      await tar(['-a', '-cf', out, '-s', ',^\\./,,', ...res.sources.flatMap((s) => ['-C', path.dirname(s), `./${path.basename(s)}`])]);
       return { ok: true, path: out };
     } catch (err) {
       if (made) await fs.rm(made, { recursive: true, force: true }).catch(() => {});

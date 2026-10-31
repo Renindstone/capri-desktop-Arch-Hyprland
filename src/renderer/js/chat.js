@@ -63,6 +63,10 @@ const FILE_TAIL = /[\s,]*(?:por favor|porfa|please|pls|por m[ií]|for me|capri)[
 const FILE_FILLER = /^(?:(?:este|esta|estos|estas|ese|esa|esos|esas|el|la|los|las|mi|mis|this|these|that|those|the|my)\s+|(?:archivos?|ficheros?|v[ií]deos?|fotos?|im[aá]gen(?:es)?|zip|rar|comprimidos?|documentos?|carpetas?|files?|folders?|photos?|pictures?|archives?)\s+(?:(?:de|del|llamad[oa]s?|called|named)\s+)?)/i;
 const NOT_A_FILE = /^(?:eso|esto|esa|esta|todo|ello|it|this|that|them|everything)$/i;
 const PATHLIKE = /[/~\\]|\.\w{1,5}$/;
+// when no name looks like a path ("comprime fotos y videos"), what says it's about files at all
+// ("mueve la reunión al viernes" isn't)
+const FILE_NOUN = /\b(?:archivos?|ficheros?|carpetas?|v[ií]deos?|fotos?|im[aá]gen(?:es)?|documentos?|comprimidos?|files?|folders?|photos?|pictures?|documents?)\b/i;
+const AND = /\s+(?:y|e|and)\s+/i;
 
 export function fileAsk(text) {
   const quoted = [];
@@ -73,29 +77,55 @@ export function fileAsk(text) {
   const [op, re] = FILE_VERBS.find(([, r]) => r.test(s)) || [];
   if (!op) return null;
   const rest = re.exec(s)[1];
-  const name = (part) => {
+  // `trim`: without "este video", "la carpeta de"… ("fotos de verano.zip" may really be its name: tried first)
+  const name = (part, trim = true) => {
     let p = part.trim();
-    for (let prev; prev !== p;) prev = p, p = p.replace(FILE_FILLER, '').trim();
+    for (let prev; trim && prev !== p;) prev = p, p = p.replace(FILE_FILLER, '').trim();
     const q = /^\u0001(\d+)\u0001$/.exec(p);
     return q ? { text: quoted[q[1]], quoted: true } : { text: p.replace(/\u0001(\d+)\u0001/g, (_m, i) => quoted[i]), quoted: false };
   };
-  const sourcesOf = (part) => part.split(/\s*,\s*|\s+(?:y|e|and)\s+/i).map(name).filter((n) => n.text && !NOT_A_FILE.test(n.text));
+  // "a.png y b.png" is two files, unless it's one called that ("tom y jerry.mp4"): both, two first
+  const sourceLists = (part, trim) => {
+    const lists = [part.split(/\s*,\s*|\s+(?:y|e|and)\s+/i)];
+    if (AND.test(part)) lists.push([part]);
+    return lists.map((l) => l.map((p) => name(p, trim)).filter((n) => n.text && !NOT_A_FILE.test(n.text)));
+  };
   const cuts = FILE_SPLIT[op] ? [...rest.matchAll(FILE_SPLIT[op])].reverse().map((m) => [rest.slice(0, m.index), rest.slice(m.index + m[0].length)]) : [];
-  if (!FILE_SPLIT[op] || NO_PLACE_NEEDED.has(op)) cuts.push([rest, null]);
-  const splits = cuts.map(([left, right]) => {
-    const place = right == null ? null : name(right).text;
-    if (right != null && !place) return null;
+  // a new folder: "llamada Fotos en documentos" is Fotos in Documentos, never a folder called "en documentos"
+  if (!FILE_SPLIT[op] || (NO_PLACE_NEEDED.has(op) && !(op === 'mkdir' && cuts.length))) cuts.push([rest, null]);
+  const splits = [];
+  const seen = new Set();
+  const add = (split, raw) => {
+    const key = JSON.stringify(split);
+    if (seen.has(key)) return;
+    seen.add(key);
+    splits.push(raw ? { ...split, raw: true } : split);
+  };
+  for (const [left, right] of cuts) {
     if (op === 'mkdir') {
-      const dir = name(left).text;
-      return dir ? { sources: [], target: place, name: dir } : null;
+      const dir = name(left, false).text;
+      const place = right == null ? null : name(right).text;
+      if (dir && (right == null || place)) add({ sources: [], target: place, name: dir });
+      continue;
     }
-    const sources = sourcesOf(left);
-    if (!sources.length || (PATHS_ONLY.has(op) && !sources.every((n) => n.quoted || PATHLIKE.test(n.text)))) return null;
-    const split = { sources: sources.map((n) => n.text), target: op === 'rename' ? null : place };
-    if (op === 'rename') split.name = place;
-    return split;
-  }).filter(Boolean);
-  return splits.length ? { op, splits } : null;
+    const found = [];
+    for (const trim of [true, false]) {
+      const place = right == null ? null : name(right, trim).text;
+      if (right != null && !place) continue;
+      for (const sources of sourceLists(left, trim)) {
+        const paths = sources.filter((n) => n.quoted || PATHLIKE.test(n.text));
+        if (!sources.length || (PATHS_ONLY.has(op) ? paths.length < sources.length : !paths.length && !FILE_NOUN.test(text))) continue;
+        const split = { sources: sources.map((n) => n.text), target: op === 'rename' ? null : place };
+        if (op === 'rename') split.name = place;
+        found.push([split, !trim]);
+      }
+    }
+    // the words as you wrote them before the trimmed ones; marked, so a refusal speaks of the trimmed ones
+    const trimmed = new Set(found.filter(([, raw]) => !raw).map(([s]) => JSON.stringify(s)));
+    for (const [split, raw] of found) if (raw && !trimmed.has(JSON.stringify(split))) add(split, true);
+    for (const [split, raw] of found) if (!raw) add(split, false);
+  }
+  return splits.length ? { op, splits: splits.slice(0, 20) } : null;
 }
 
 const OPEN_ASK = /\b(open|launch|start|run)\b|ouvr|lance|démarre|abre|abrir|inicia|ejecuta|executa|открой|запусти/i;
