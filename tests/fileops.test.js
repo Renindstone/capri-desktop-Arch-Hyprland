@@ -94,3 +94,88 @@ test('rename and mkdir plans', async () => {
   assert.deepEqual([m.names, m.to], [['Ventas'], '~/Documentos']);
   assert.equal((await one(ops, 'mkdir', [], null, 'Nueva')).to, '~');
 });
+
+const { execFileSync } = require('node:child_process');
+const at = (home, rel) => path.join(home, rel);
+
+test('move, copy, rename, mkdir, trash', async () => {
+  const { home, ops, trashed } = setup();
+  const mv = await one(ops, 'move', ['descargas/pepito.mp4'], 'comercio');
+  assert.deepEqual(await ops.run(mv.id), { ok: true, path: at(home, 'Documentos/Comercio/pepito.mp4') });
+  assert.ok(!fs.existsSync(at(home, 'Descargas/pepito.mp4')));
+  const cp = await one(ops, 'copy', ['documentos/comercio/pepito.mp4'], 'descargas');
+  assert.equal((await ops.run(cp.id)).path, at(home, 'Descargas/pepito.mp4'));
+  assert.equal(fs.readFileSync(at(home, 'Documentos/Comercio/pepito.mp4'), 'utf8'), 'video');
+  const rn = await one(ops, 'rename', ['descargas/pepito.mp4'], null, 'juan.mp4');
+  assert.equal((await ops.run(rn.id)).path, at(home, 'Descargas/juan.mp4'));
+  const mk = await one(ops, 'mkdir', [], 'documentos', 'Ventas');
+  assert.equal((await ops.run(mk.id)).path, at(home, 'Documentos/Ventas'));
+  assert.ok(fs.statSync(at(home, 'Documentos/Ventas')).isDirectory());
+  const tr = await one(ops, 'trash', ['descargas/juan.mp4', 'documentos/ventas']);
+  assert.deepEqual(await ops.run(tr.id), { ok: true, path: null });
+  assert.deepEqual(trashed, [at(home, 'Descargas/juan.mp4'), at(home, 'Documentos/Ventas')]);
+});
+
+test('the second choice', async () => {
+  const { home, put, ops } = setup();
+  put('Descargas/comercio');
+  const p = await one(ops, 'copy', ['descargas/pepito.mp4'], 'comercio');
+  const i = p.choices.indexOf('~/Descargas/comercio');
+  assert.equal((await ops.run(p.id, i)).path, at(home, 'Descargas/comercio/pepito.mp4'));
+});
+
+test('extract and compress with bsdtar, free names', async () => {
+  const { home, put, ops } = setup();
+  put('src/a.txt', 'hola');
+  execFileSync('bsdtar', ['-a', '-cf', at(home, 'Descargas/juego.zip'), '-C', at(home, 'src'), 'a.txt']);
+  const x1 = await ops.run((await one(ops, 'extract', ['descargas/juego.zip'])).id);
+  assert.deepEqual(x1, { ok: true, path: at(home, 'Descargas/juego') });
+  assert.equal(fs.readFileSync(at(home, 'Descargas/juego/a.txt'), 'utf8'), 'hola');
+  assert.equal((await ops.run((await one(ops, 'extract', ['descargas/juego.zip'])).id)).path, at(home, 'Descargas/juego (2)'));
+  assert.equal((await ops.run((await one(ops, 'extract', ['descargas/juego.zip'], 'documentos')).id)).path, at(home, 'Documentos/juego'));
+  const c1 = await ops.run((await one(ops, 'compress', ['descargas/pepito.mp4'])).id);
+  assert.equal(c1.path, at(home, 'Descargas/pepito.zip'));
+  assert.match(execFileSync('bsdtar', ['-tf', c1.path], { encoding: 'utf8' }), /^pepito\.mp4$/m);
+  assert.equal((await ops.run((await one(ops, 'compress', ['descargas/pepito.mp4'])).id)).path, at(home, 'Descargas/pepito (2).zip'));
+  const c2 = await ops.run((await one(ops, 'compress', ['descargas/pepito.mp4', 'imágenes'])).id);
+  assert.equal(c2.path, at(home, 'Descargas/Archivos.zip'));
+  assert.equal((await ops.run((await one(ops, 'compress', ['descargas/pepito.mp4'], 'documentos')).id)).path, at(home, 'Documentos/pepito.zip'));
+  execFileSync('bsdtar', ['-czf', at(home, 'Descargas/x.tar.gz'), '-C', at(home, 'src'), 'a.txt']);
+  assert.equal((await ops.run((await one(ops, 'extract', ['descargas/x.tar.gz'])).id)).path, at(home, 'Descargas/x'));
+});
+
+test('target appears between plan and click: no overwrite', async () => {
+  const { home, ops } = setup();
+  const p = await one(ops, 'move', ['descargas/pepito.mp4'], 'comercio');
+  fs.writeFileSync(at(home, 'Documentos/Comercio/pepito.mp4'), 'otro');
+  assert.equal((await ops.run(p.id)).error, 'exists');
+  assert.equal(fs.readFileSync(at(home, 'Documentos/Comercio/pepito.mp4'), 'utf8'), 'otro');
+  assert.ok(fs.existsSync(at(home, 'Descargas/pepito.mp4')));
+});
+
+test('expired, unknown and reused ids', async () => {
+  let t = 0;
+  const { ops } = setup({ now: () => t });
+  const p = await one(ops, 'trash', ['descargas/pepito.mp4']);
+  t = 10 * 60 * 1000 + 1;
+  assert.equal((await ops.run(p.id)).error, 'expired');
+  assert.equal((await ops.run('nope')).error, 'expired');
+  const q = await one(ops, 'trash', ['descargas/pepito.mp4']);
+  assert.equal((await ops.run(q.id)).ok, true);
+  assert.equal((await ops.run(q.id)).error, 'expired');
+});
+
+test('no archiver', async () => {
+  const { home, put, ops } = setup({ archiver: 'no-such-tool' });
+  put('Descargas/juego.zip', 'x');
+  assert.equal((await ops.run((await one(ops, 'extract', ['descargas/juego.zip'])).id)).error, 'noTool');
+  assert.ok(!fs.existsSync(at(home, 'Descargas/juego')));
+});
+
+test('a failed extraction leaves nothing behind', async () => {
+  const { home, put, ops } = setup();
+  put('Descargas/roto.zip', 'not a zip');
+  const r = await ops.run((await one(ops, 'extract', ['descargas/roto.zip'])).id);
+  assert.equal(r.error, 'failed');
+  assert.ok(!fs.existsSync(at(home, 'Descargas/roto')));
+});
