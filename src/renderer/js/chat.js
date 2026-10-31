@@ -481,6 +481,8 @@ export class Chat {
     const go = goTarget(text);
     if (go) return { kind: 'goto', name: go };
     if (SHOT_ASK.test(text)) return { kind: 'shot' };
+    const fileop = fileAsk(text);
+    if (fileop) return { kind: 'fileop', ask: fileop };
     const roblox = robloxGame(text);
     if (roblox) return { kind: 'roblox', game: roblox };
     if (SEARCH_VERB.test(text) && WEB_WORD.test(text) && searched(text)) return { kind: 'web', query: searched(text) };
@@ -569,6 +571,12 @@ export class Chat {
       if (asked.then === 'open' && !runs && (await this.host.openFile(results[0].path))) lines.push(fmt(t.opened, { app: results[0].name }));
       return { line: lines.join('\n'), face: 'smug', files: results };
     }
+    if (asked.kind === 'fileop') {
+      // only the plan for now: it happens once you click its button (after)
+      const plan = await this.host.planFileOp(asked.ask);
+      if (plan?.id) return { fileop: plan };
+      return { line: fmt(t.fileop.errors[plan?.error] || t.fileop.errors.unclear, { name: plan?.name }), face: 'aside' };
+    }
     if (asked.kind === 'shot') {
       // not her nor her panel in it
       document.documentElement.style.visibility = 'hidden';
@@ -637,6 +645,7 @@ export class Chat {
       return undefined;
     }
     if (done?.offer) return this.launch(done.offer, answer); // it would run something: your click first
+    if (done?.fileop) return this.offerFileOp(done.fileop, answer);
     if (done?.files) {
       // what she found (or the screenshot): a button to open the first, and to see where it is
       this.addLine(answer, done.line, done.face);
@@ -682,6 +691,37 @@ export class Chat {
   zap() {
     const h = this.capri.head();
     this.capri.zap(h.x + this.capri.towardCenter() * 280, h.y - 170);
+  }
+
+  // What she'd do with your files, and a button for it (one per folder, when two have that name):
+  // nothing happens before your click, and then only that.
+  offerFileOp(plan, answer) {
+    const f = this.t.fileop;
+    const verb = f.verbs[plan.op];
+    const what = plan.names.length === 1 ? plan.names[0] : fmt(f.many, { count: plan.names.length, list: plan.names.slice(0, 3).join(', ') });
+    // two folders to pick from: the buttons say where, not the line
+    this.addLine(answer, fmt(plan.to && plan.choices.length < 2 ? f.plan : f.planHere, { verb, what, to: plan.to }), 'look');
+    const actions = plan.choices.length > 1
+      ? plan.choices.map((to, i) => ({ id: String(i), label: fmt(f.doTo, { verb, to }), primary: i === 0 }))
+      : [{ id: '0', label: f.doIt, primary: true }];
+    this.panel.setActions([...actions, { id: 'no', label: this.t.no }], async (id) => {
+      this.panel.setActions([]);
+      if (id === 'no') return;
+      const res = await this.host.runFileOp(plan.id, Number(id));
+      if (!res?.ok) {
+        const why = res?.error === 'failed' ? fmt(f.failed, { why: res.message }) : fmt(f.errors[res?.error] || f.errors.unclear, { name: res?.name });
+        this.addLine(answer, why, 'aside');
+        return;
+      }
+      this.zap();
+      this.voice.play('tick');
+      if (!res.path) {
+        this.addLine(answer, fmt(f.trashed, { what }), 'smug');
+        return;
+      }
+      this.addLine(answer, fmt(f.done, { path: res.shown }), 'laugh');
+      this.panel.setActions([{ id: 'folder', label: this.t.showFolder, primary: true }], () => this.host.openFile(res.path, true));
+    });
   }
 
   // An app or a game her tag asked for: behind a button (now: the button was clicked).
@@ -820,7 +860,8 @@ export class Chat {
       if (soon.length) lines.push(`Reminders you're keeping for them: ${soon.map((r) => `${clock(r.at, this.brain.lang)}${r.text ? ` (${r.text})` : ''}`).join('; ')}.`);
     }
     lines.push('Your system also searches the user\'s files when they ask you to find one, searches the web when they ask, takes screenshots, and starts Roblox games by name: what it did shows under your answer, so never make up file names or results.');
-    lines.push('Apart from that, you can\'t see the user\'s screen or files, and you can\'t touch anything else on their PC (settings, files): if asked, say plainly that you can\'t, in character, and don\'t pretend to.');
+    lines.push('When the user asks, with the path, to extract, compress, move, copy, rename, delete (to the trash) a file or folder, or to create a folder, your system does it: a line under your answer shows what it will do, with a button to confirm, so say in a few words that you will and never say it is already done.');
+    lines.push('Apart from that, you can\'t see the user\'s screen, and you can\'t touch anything else on their PC (settings, other changes to files): if asked, say plainly that you can\'t, in character, and don\'t pretend to.');
     return lines;
   }
 

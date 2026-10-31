@@ -99,6 +99,18 @@ export const LINES = {
       filesFound: 'J’ai trouvé {count} fichiers : {list}.', fileFound: 'Trouvé : {list}.', filesNone: 'Rien trouvé pour « {query} » sur ton PC.',
       showFolder: 'Voir le dossier', shot: 'Capture faite : {name} (dans Images › Screenshots).',
       folderOpened: 'Voilà son dossier : {name}.',
+      // ce qu'elle fait de tes fichiers quand tu le demandes (fileops.js): toujours derrière un bouton
+      fileop: {
+        verbs: { extract: 'Extraire', compress: 'Compresser', move: 'Déplacer', copy: 'Copier', rename: 'Renommer', trash: 'Mettre à la corbeille', mkdir: 'Créer le dossier' },
+        plan: '{verb} {what} → {to}', planHere: '{verb} {what}', many: '{count} fichiers ({list})',
+        doIt: 'Vas-y', doTo: '{verb} → {to}', done: 'Fait : {path}.', trashed: '{what} : à la corbeille.', failed: 'Raté : {why}',
+        errors: {
+          missing: 'Je ne trouve pas « {name} ». Tu l’as inventé ?', outside: '« {name} » est hors de ton dossier perso (ou caché) : je n’y touche pas.',
+          exists: 'Il y a déjà un « {name} » là-bas. Je n’écrase rien.', notFolder: '« {name} » n’est pas un dossier.',
+          inside: 'Un dossier dans lui-même ? Même moi je ne fais pas ça.', unclear: 'Je n’ai pas saisi quels fichiers. Donne-moi le chemin, genre telechargements/truc.zip.',
+          expired: 'Trop tard, ça a expiré. Redemande-moi.', noTool: 'Il me manque bsdtar pour les archives.',
+        },
+      },
       folders: { explorer: 'L’explorateur', recycle: 'La corbeille', downloads: 'Tes téléchargements', desktop: 'Ton bureau', documents: 'Tes documents', pictures: 'Tes images', music: 'Ta musique', videos: 'Tes vidéos' },
       goto: { going: ['On va sur {name}.', 'Direction {name}.'], none: ['Je ne vois pas {name} ouvert.'], here: ['Tu es déjà sur {name}.'] }, // Linux
       media: { pause: 'Pause.', play: 'Ça repart.', next: 'Suivante.', previous: 'Précédente.', volup: 'Plus fort.', voldown: 'Moins fort.', mute: 'J’ai appuyé sur muet.' },
@@ -452,6 +464,18 @@ export const LINES = {
       filesFound: 'Found {count} files: {list}.', fileFound: 'Found it: {list}.', filesNone: 'Nothing for “{query}” on your PC.',
       showFolder: 'Show the folder', shot: 'Screenshot taken: {name} (in Pictures › Screenshots).',
       folderOpened: 'Here’s its folder: {name}.',
+      // what she does with your files when you ask (fileops.js): always behind a button
+      fileop: {
+        verbs: { extract: 'Extract', compress: 'Compress', move: 'Move', copy: 'Copy', rename: 'Rename', trash: 'Move to the trash', mkdir: 'Create the folder' },
+        plan: '{verb} {what} → {to}', planHere: '{verb} {what}', many: '{count} files ({list})',
+        doIt: 'Do it', doTo: '{verb} → {to}', done: 'Done: {path}.', trashed: '{what}: in the trash.', failed: 'Couldn’t: {why}',
+        errors: {
+          missing: 'Can’t find “{name}”. Did you make it up?', outside: '“{name}” is outside your home folder (or hidden): hands off.',
+          exists: 'There’s already a “{name}” there. I don’t overwrite.', notFolder: '“{name}” isn’t a folder.',
+          inside: 'A folder inside itself? Not even I can pull that off.', unclear: 'Didn’t catch which files. Give me the path, like downloads/thing.zip.',
+          expired: 'That one expired. Ask me again.', noTool: 'I need bsdtar for archives.',
+        },
+      },
       folders: { explorer: 'File Explorer', recycle: 'The recycle bin', downloads: 'Your downloads', desktop: 'Your desktop', documents: 'Your documents', pictures: 'Your pictures', music: 'Your music', videos: 'Your videos' },
       goto: { going: ['Off to {name}.', 'Taking you to {name}.'], none: ['I don’t see {name} open.'], here: ['You’re already in {name}.'] }, // Linux
       media: { pause: 'Paused.', play: 'Playing.', next: 'Next one.', previous: 'Previous one.', volup: 'Louder.', voldown: 'Quieter.', mute: 'Hit mute.' },
@@ -804,6 +828,18 @@ export const LINES = {
       filesFound: 'Encontré {count} archivos: {list}.', fileFound: 'Encontrado: {list}.', filesNone: 'Nada para «{query}» en tu PC.',
       showFolder: 'Ver la carpeta', shot: 'Captura hecha: {name} (en Imágenes › Screenshots).',
       folderOpened: 'Aquí está su carpeta: {name}.',
+      // lo que hace con tus archivos cuando se lo pides (fileops.js): siempre detrás de un botón
+      fileop: {
+        verbs: { extract: 'Extraer', compress: 'Comprimir', move: 'Mover', copy: 'Copiar', rename: 'Renombrar', trash: 'Mandar a la papelera', mkdir: 'Crear la carpeta' },
+        plan: '{verb} {what} → {to}', planHere: '{verb} {what}', many: '{count} archivos ({list})',
+        doIt: 'Hazlo', doTo: '{verb} → {to}', done: 'Hecho: {path}.', trashed: '{what}: a la papelera.', failed: 'No pude: {why}',
+        errors: {
+          missing: 'No encuentro «{name}». ¿Seguro que existe, o te lo inventaste?', outside: '«{name}» está fuera de tu carpeta personal (o escondido): ahí no meto mano.',
+          exists: 'Ya hay un «{name}» ahí. No lo voy a pisar.', notFolder: '«{name}» no es una carpeta.',
+          inside: '¿Una carpeta dentro de sí misma? Ni yo hago esa magia.', unclear: 'No pillé qué archivos. Dame la ruta, tipo descargas/cosa.zip.',
+          expired: 'Eso ya caducó. Pídemelo otra vez.', noTool: 'Me falta bsdtar para los comprimidos.',
+        },
+      },
       folders: { explorer: 'El explorador', recycle: 'La papelera', downloads: 'Tus descargas', desktop: 'Tu escritorio', documents: 'Tus documentos', pictures: 'Tus imágenes', music: 'Tu música', videos: 'Tus vídeos' },
       goto: { going: ['Vamos a {name}.', 'Te llevo a {name}.'], none: ['No veo {name} abierto.'], here: ['Ya estás en {name}.'] }, // Linux
       media: { pause: 'Pausa.', play: 'Sigue sonando.', next: 'Siguiente.', previous: 'Anterior.', volup: 'Más alto.', voldown: 'Más bajo.', mute: 'Le di a silenciar.' },
@@ -1155,6 +1191,18 @@ export const LINES = {
       filesFound: 'Achei {count} arquivos: {list}.', fileFound: 'Achei: {list}.', filesNone: 'Nada pra “{query}” no seu PC.',
       showFolder: 'Ver a pasta', shot: 'Captura feita: {name} (em Imagens › Screenshots).',
       folderOpened: 'Aqui tá a pasta: {name}.',
+      // o que ela faz com seus arquivos quando você pede (fileops.js): sempre atrás de um botão
+      fileop: {
+        verbs: { extract: 'Extrair', compress: 'Compactar', move: 'Mover', copy: 'Copiar', rename: 'Renomear', trash: 'Mandar pra lixeira', mkdir: 'Criar a pasta' },
+        plan: '{verb} {what} → {to}', planHere: '{verb} {what}', many: '{count} arquivos ({list})',
+        doIt: 'Manda ver', doTo: '{verb} → {to}', done: 'Feito: {path}.', trashed: '{what}: pra lixeira.', failed: 'Não deu: {why}',
+        errors: {
+          missing: 'Não acho “{name}”. Você inventou?', outside: '“{name}” tá fora da sua pasta pessoal (ou escondido): aí eu não mexo.',
+          exists: 'Já tem um “{name}” lá. Não vou sobrescrever.', notFolder: '“{name}” não é uma pasta.',
+          inside: 'Uma pasta dentro dela mesma? Nem eu faço essa.', unclear: 'Não peguei quais arquivos. Me dá o caminho, tipo downloads/coisa.zip.',
+          expired: 'Isso expirou. Me pede de novo.', noTool: 'Falta o bsdtar pros arquivos compactados.',
+        },
+      },
       folders: { explorer: 'O explorador de arquivos', recycle: 'A lixeira', downloads: 'Seus downloads', desktop: 'Sua área de trabalho', documents: 'Seus documentos', pictures: 'Suas imagens', music: 'Suas músicas', videos: 'Seus vídeos' },
       goto: { going: ['Indo para {name}.', 'Te levo para {name}.'], none: ['Não vejo {name} aberto.'], here: ['Você já está em {name}.'] }, // Linux
       media: { pause: 'Pausado.', play: 'Tocando.', next: 'Próxima.', previous: 'Anterior.', volup: 'Mais alto.', voldown: 'Mais baixo.', mute: 'Apertei o mudo.' },
@@ -1506,6 +1554,18 @@ export const LINES = {
       filesFound: 'Нашла файлов: {count}. {list}.', fileFound: 'Нашла: {list}.', filesNone: 'По запросу «{query}» на твоём ПК ничего.',
       showFolder: 'Показать папку', shot: 'Скриншот готов: {name} (в Изображения › Screenshots).',
       folderOpened: 'Вот его папка: {name}.',
+      // что она делает с твоими файлами, когда просишь (fileops.js): всегда через кнопку
+      fileop: {
+        verbs: { extract: 'Распаковать', compress: 'Запаковать', move: 'Переместить', copy: 'Скопировать', rename: 'Переименовать', trash: 'В корзину', mkdir: 'Создать папку' },
+        plan: '{verb} {what} → {to}', planHere: '{verb} {what}', many: 'файлов: {count} ({list})',
+        doIt: 'Давай', doTo: '{verb} → {to}', done: 'Готово: {path}.', trashed: '{what}: в корзине.', failed: 'Не вышло: {why}',
+        errors: {
+          missing: 'Не нахожу «{name}». Ты это выдумал?', outside: '«{name}» вне твоей домашней папки (или скрыто): туда не лезу.',
+          exists: 'Там уже есть «{name}». Затирать не буду.', notFolder: '«{name}» — не папка.',
+          inside: 'Папку в саму себя? Даже я так не умею.', unclear: 'Не поняла, какие файлы. Дай путь, например downloads/файл.zip.',
+          expired: 'Это уже устарело. Попроси ещё раз.', noTool: 'Мне нужен bsdtar для архивов.',
+        },
+      },
       folders: { explorer: 'Проводник', recycle: 'Корзина', downloads: 'Твои загрузки', desktop: 'Твой рабочий стол', documents: 'Твои документы', pictures: 'Твои изображения', music: 'Твоя музыка', videos: 'Твои видео' },
       goto: { going: ['Идём в {name}.', 'Веду тебя в {name}.'], none: ['Не вижу, чтобы {name} было открыто.'], here: ['Ты уже в {name}.'] }, // Linux
       media: { pause: 'Пауза.', play: 'Играет.', next: 'Следующий.', previous: 'Предыдущий.', volup: 'Громче.', voldown: 'Тише.', mute: 'Нажала «без звука».' },

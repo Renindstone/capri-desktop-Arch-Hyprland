@@ -22,6 +22,7 @@ const setup = require('./setup');
 const apps = require('./apps');
 const launch = require('./launch');
 const files = require('./files');
+const { createFileOps } = require('./fileops');
 const { ASSISTANTS, assistant } = require('./assistants');
 const activeAssistant = () => assistant(config.load().assistant); // Claude Code or Codex
 const activeHooks = () => activeAssistant().hooks;
@@ -933,6 +934,26 @@ function registerIpc() {
   ipcMain.handle('files:search', (_e, query) => files.search(query).catch(() => []));
   ipcMain.handle('files:open', (_e, { file, reveal }) => files.open(String(file), { reveal: Boolean(reveal) }).then(() => true, () => false));
   ipcMain.handle('files:screenshot', () => files.screenshot(targetDisplay()).catch(() => null));
+  // doing things with your files when you ask (fileops.js): a plan shown behind a button, then only that plan
+  const home = app.getPath('home');
+  const fileOps = createFileOps({
+    home,
+    known: Object.fromEntries(['downloads', 'documents', 'desktop', 'pictures', 'music', 'videos'].map((k) => [k, app.getPath(k)])),
+    trash: (p) => shell.trashItem(p),
+    archiver: process.platform === 'win32' ? 'tar' : 'bsdtar',
+  });
+  const str = (v) => typeof v === 'string' && v.length <= 1000;
+  ipcMain.handle('fileops:plan', (_e, ask) => {
+    const fine = ask && str(ask.op) && Array.isArray(ask.splits) && ask.splits.length <= 20 && ask.splits.every((s) => s
+      && Array.isArray(s.sources) && s.sources.length <= 50 && s.sources.every(str) && (s.target == null || str(s.target)) && (s.name == null || str(s.name)));
+    return fine ? fileOps.plan(ask).catch(() => ({ error: 'unclear' })) : { error: 'unclear' };
+  });
+  ipcMain.handle('fileops:run', async (_e, { id, choice } = {}) => {
+    const res = await fileOps.run(String(id), Number(choice) || 0).catch((err) => ({ ok: false, error: 'failed', message: err.message }));
+    if (!res.path) return res;
+    files.allow(res.path);
+    return { ...res, shown: res.path.startsWith(home + path.sep) ? `~${res.path.slice(home.length).replaceAll(path.sep, '/')}` : res.path };
+  });
   ipcMain.handle('web:search', (_e, query) => {
     const q = String(query || '').trim().slice(0, 300);
     if (!q) return false;

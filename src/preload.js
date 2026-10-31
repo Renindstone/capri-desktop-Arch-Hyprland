@@ -71,6 +71,8 @@ contextBridge.exposeInMainWorld('host', {
   searchFiles: (query) => ipcRenderer.invoke('files:search', query),
   openFile: (file, reveal) => ipcRenderer.invoke('files:open', { file, reveal }),
   screenshot: () => ipcRenderer.invoke('files:screenshot'),
+  planFileOp: (ask) => ipcRenderer.invoke('fileops:plan', ask),
+  runFileOp: (id, choice) => ipcRenderer.invoke('fileops:run', { id, choice }),
   webSearch: (query) => ipcRenderer.invoke('web:search', query),
   openSite: (address) => ipcRenderer.invoke('apps:site', address),
   focusOverlay: (on) => ipcRenderer.send('overlay:focus', Boolean(on)),

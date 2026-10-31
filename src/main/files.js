@@ -137,4 +137,7 @@ async function screenshot(display) {
   return { path: file, name: path.basename(file) };
 }
 
-module.exports = { search, open, screenshot };
+// something she made for you (fileops.js): yours to open from her chat too
+const allow = (file) => found.add(file);
+
+module.exports = { search, open, screenshot, allow };

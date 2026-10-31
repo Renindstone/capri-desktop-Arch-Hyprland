@@ -53,3 +53,18 @@ test('not a file request', async () => {
   const { fileAsk } = await load();
   for (const t of ['mueve el cuerpo', 'copia esto', 'borra eso', 'abre spotify', 'cuéntame un chiste', 'pasa a verme']) assert.equal(fileAsk(t), null, t);
 });
+
+test('her file lines, in every language, with every op and every refusal', async () => {
+  const { LINES } = await import(pathToFileURL(path.join(__dirname, '../src/renderer/js/lines.js')).href);
+  const ops = ['extract', 'compress', 'move', 'copy', 'rename', 'trash', 'mkdir'];
+  const errors = ['missing', 'outside', 'exists', 'notFolder', 'inside', 'unclear', 'expired', 'noTool'];
+  for (const [lang, lines] of Object.entries(LINES)) {
+    const f = lines.chat.fileop;
+    assert.ok(f, lang);
+    for (const k of ['plan', 'planHere', 'many', 'doIt', 'doTo', 'done', 'trashed', 'failed']) assert.equal(typeof f[k], 'string', `${lang} ${k}`);
+    assert.deepEqual(Object.keys(f.verbs).sort(), [...ops].sort(), lang);
+    assert.deepEqual(Object.keys(f.errors).sort(), [...errors].sort(), lang);
+    assert.match(f.plan, /\{verb\}.*\{what\}.*\{to\}/, lang);
+    assert.match(f.done, /\{path\}/, lang);
+  }
+});
