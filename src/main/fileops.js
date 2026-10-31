@@ -24,6 +24,7 @@ const there = (p) => fs.lstat(p).then(() => true, () => false); // a broken link
 const goodName = (n) => typeof n === 'string' && n.trim() && !/[/\\]/.test(n) && !n.trim().startsWith('.');
 // "juego.zip" → "juego", "x.tar.gz" → "x"
 const TARBALL = /\.(?:tar\.(?:gz|xz|bz2|zst)|tgz)$/i;
+const ARCHIVE = /\.(?:zip|rar|7z|tar|tgz|tar\.(?:gz|xz|bz2|zst))$/i;
 const bare = (name) => (TARBALL.test(name) ? name.replace(TARBALL, '') : path.basename(name, path.extname(name)) || name);
 
 // `base`, else "base (2)", "base (3)"…: a name nothing has yet (she picked it, so she can pick another)
@@ -128,6 +129,13 @@ function createFileOps({ home, known = {}, trash, archiver = 'bsdtar', now = Dat
       const name = split.name.trim();
       if (await there(path.join(path.dirname(sources[0]), name))) return refuse('exists', name);
       return { op, sources, targets: [], name };
+    }
+    if (op === 'extract' && (await stat(sources[0]))?.isDirectory()) {
+      // "el zip que hay en <carpeta>": the one archive in it
+      const entries = await fs.readdir(sources[0], { withFileTypes: true }).catch(() => []);
+      const archives = entries.filter((e) => e.isFile() && !e.name.startsWith('.') && ARCHIVE.test(e.name));
+      if (archives.length !== 1) return refuse(archives.length ? 'manyArchives' : 'noArchive', split.sources[0]);
+      sources[0] = path.join(sources[0], archives[0].name);
     }
     if (op === 'extract' && !(await stat(sources[0]))?.isFile()) return refuse('notFolder', path.basename(sources[0]));
     if (op === 'mkdir' && !goodName(split.name)) return refuse('unclear');

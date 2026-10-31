@@ -65,11 +65,11 @@ test('not a file request', async () => {
 test('her file lines, in every language, with every op and every refusal', async () => {
   const { LINES } = await import(pathToFileURL(path.join(__dirname, '../src/renderer/js/lines.js')).href);
   const ops = ['extract', 'compress', 'move', 'copy', 'rename', 'trash', 'mkdir'];
-  const errors = ['missing', 'outside', 'exists', 'notFolder', 'inside', 'unclear', 'expired', 'noTool'];
+  const errors = ['missing', 'outside', 'exists', 'notFolder', 'inside', 'unclear', 'expired', 'noTool', 'noArchive', 'manyArchives'];
   for (const [lang, lines] of Object.entries(LINES)) {
     const f = lines.chat.fileop;
     assert.ok(f, lang);
-    for (const k of ['plan', 'planHere', 'many', 'doIt', 'doTo', 'done', 'trashed', 'failed']) assert.equal(typeof f[k], 'string', `${lang} ${k}`);
+    for (const k of ['plan', 'planHere', 'many', 'doIt', 'doTo', 'done', 'trashed', 'failed', 'hint']) assert.equal(typeof f[k], 'string', `${lang} ${k}`);
     assert.deepEqual(Object.keys(f.verbs).sort(), [...ops].sort(), lang);
     assert.deepEqual(Object.keys(f.errors).sort(), [...errors].sort(), lang);
     assert.match(f.plan, /\{verb\}.*\{what\}.*\{to\}/, lang);

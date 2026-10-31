@@ -43,22 +43,29 @@ export function goTarget(text) {
 // "extrae descargas/juego.zip", "mueve a.png y b.png a comercio", "borra descargas/pepito.mp4" (Spanish,
 // English): which op, on which files, and every way the words could split ("viaje a roma.mp4" has an " a "
 // in it): the main process (fileops.js) keeps the first split whose files are there
+// each verb as an order ("extrae"), asked for ("puedes extraer", "quiero que extraigas") or with a "lo" on it
 const FILE_VERBS = [
-  ['trash', /^(?:manda|env[ií]a|mueve|send|move)\s+(.+?)\s+(?:a la papelera|a la basura|to the (?:trash|bin))$/i],
-  ['extract', /^(?:extrae(?:me)?|descomprime(?:me)?|extract|unzip|decompress)\s+(.+)$/i],
-  ['compress', /^(?:comprime(?:me)?|compress|zip)\s+(.+)$/i],
-  ['move', /^(?:mueve(?:me)?|pasa(?:me)?|move)\s+(.+)$/i],
-  ['copy', /^(?:copia(?:me)?|copy)\s+(.+)$/i],
-  ['rename', /^(?:renombra(?:me)?|cambia(?:le)? el nombre (?:de|a)|rename)\s+(.+)$/i],
-  ['trash', /^(?:elimina(?:me)?|borra(?:me)?|delete|remove|trash)\s+(.+)$/i],
-  ['mkdir', /^(?:crea(?:me)?|haz(?:me)?|create|make)\s+(?:(?:una?|la|el|the|a)\s+)?(?:(?:nueva|new)\s+)?(?:carpeta|folder|directorio|directory)\s+(?:(?:llamada|nombrada|called|named)\s+)?(.+)$/i],
+  ['trash', /^(?:manda|mandar|mandes|env[ií]a|enviar|mueve|mover|muevas|send|move)\s+(.+?)\s+(?:a la papelera|a la basura|to the (?:trash|bin))$/i],
+  ['extract', /^(?:extr[aá]e(?:me|lo)?|extraer(?:lo|me)?|extraigas|descompr[ií]me(?:me|lo)?|descomprimir(?:lo)?|descomprimas|extract|unzip|decompress)\s+(.+)$/i],
+  ['compress', /^(?:compr[ií]me(?:me|lo)?|comprimir(?:lo)?|comprimas|compress|zip)\s+(.+)$/i],
+  ['move', /^(?:mueve(?:me|lo)?|mover(?:lo)?|muevas|pasa(?:me|lo)?|pasar(?:lo)?|pases|move)\s+(.+)$/i],
+  ['copy', /^(?:copia(?:me|lo)?|copiar(?:lo)?|copies|copy)\s+(.+)$/i],
+  ['rename', /^(?:renombra(?:me|lo)?|renombrar(?:lo)?|renombres|cambia(?:r)?(?:le)? el nombre (?:de|a)|rename)\s+(.+)$/i],
+  ['trash', /^(?:elimina(?:me|lo)?|eliminar(?:lo)?|elimines|borra(?:me|lo)?|borrar(?:lo)?|borres|delete|remove|trash)\s+(.+)$/i],
+  ['mkdir', /^(?:crea(?:me)?|crear(?:me)?|crees|haz(?:me)?|hacer(?:me)?|hagas|create|make)\s+(?:(?:una?|la|el|the|a)\s+)?(?:(?:nueva|new)\s+)?(?:carpeta|folder|directorio|directory)\s+(?:(?:llamada|nombrada|called|named)\s+)?(.+)$/i],
 ];
 // what comes before the destination ("a comercio", "en documentos"), the new name, the parent folder
 const TO_PLACE = /\s(?:a|al|en|hacia|dentro de|to|into|in)\s/gi;
 const FILE_SPLIT = { move: TO_PLACE, copy: TO_PLACE, extract: TO_PLACE, compress: TO_PLACE, rename: /\s(?:a|como|por|to|as)\s/gi, mkdir: /\s(?:en|dentro de|in|inside)\s/gi };
 const NO_PLACE_NEEDED = new Set(['extract', 'compress', 'mkdir']);
 const PATHS_ONLY = new Set(['trash', 'rename', 'extract']); // no destination to tell it's about files: a real path
-const FILE_TAIL = /[\s,]*(?:por favor|porfa|please|pls|por m[ií]|for me|capri)[\s.!?¡,]*$/i;
+const FILE_TAIL = /[\s,]*(?:por favor|porfa|please|pls|por m[ií]|for me|capri|nom[aá]s|[:;][-']?[vdp3()]+)[\s.!?¡,]*$/i;
+// "puedes…", "quiero que…", "can you…": asking, not ordering
+const ASKING = /^(?:(?:me|nos)\s+)?(?:puedes|podr[ií]as|quiero\s+que|necesito\s+que|can\s+you|could\s+you|would\s+you|please)\s+(?:(?:me|nos)\s+)?/i;
+// "en la misma carpeta", "ahí mismo", "aquí" (and a "causita" after it): where the archive already is
+const SAME_PLACE = /\s+(?:(?:en|in)\s+)?(?:(?:la\s+)?misma\s+carpeta|(?:the\s+)?same\s+(?:folder|place)|ah[ií]|aqu[ií]|ac[aá]|all[ií]|right\s+(?:here|there)|here|there|donde\s+(?:est[aá]|lo\s+tengo))(?:\s+mismo)?(?:\s+[\p{L}]+)?$/iu;
+// "el zip que hay en <carpeta>": the folder is what to look in
+const ARCHIVE_REF = /^(?:(?:el|un|the|a|this|ese|este|mi)\s+)?(?:zip|rar|7z|archivo|comprimido|fichero|file|archive)(?:\s+(?:que\s+(?:hay|est[aá]|tengo)|that'?s|which\s+is))?$/i;
 // "este zip", "la carpeta de", "the file": not part of the name
 const FILE_FILLER = /^(?:(?:este|esta|estos|estas|ese|esa|esos|esas|el|la|los|las|mi|mis|this|these|that|those|the|my)\s+|(?:archivos?|ficheros?|v[ií]deos?|fotos?|im[aá]gen(?:es)?|zip|rar|comprimidos?|documentos?|carpetas?|files?|folders?|photos?|pictures?|archives?)\s+(?:(?:de|del|llamad[oa]s?|called|named)\s+)?)/i;
 const NOT_A_FILE = /^(?:eso|esto|esa|esta|todo|ello|it|this|that|them|everything)$/i;
@@ -71,12 +78,13 @@ const AND = /\s+(?:y|e|and)\s+/i;
 export function fileAsk(text) {
   const quoted = [];
   let s = String(text || '').trim().replace(/["“”«»]([^"“”«»]+)["“”«»]/g, (_m, q) => `\u0001${quoted.push(q) - 1}\u0001`);
-  s = s.replace(/^capri[,!:]?\s+/i, '');
+  s = s.replace(/^[¿¡]?\s*(?:(?:oye|hey)\s+)?capri[,!:]?\s+/i, '').replace(/^[¿¡]\s*/, '').replace(ASKING, '');
   for (let prev; prev !== s;) prev = s, s = s.replace(FILE_TAIL, '');
   s = s.replace(/[\s.!?¡¿,]+$/, '');
   const [op, re] = FILE_VERBS.find(([, r]) => r.test(s)) || [];
   if (!op) return null;
-  const rest = re.exec(s)[1];
+  let rest = re.exec(s)[1];
+  if (op === 'extract' || op === 'compress') rest = rest.replace(SAME_PLACE, ''); // next to it is where it goes anyway
   // `trim`: without "este video", "la carpeta de"… ("fotos de verano.zip" may really be its name: tried first)
   const name = (part, trim = true) => {
     let p = part.trim();
@@ -90,9 +98,17 @@ export function fileAsk(text) {
     if (AND.test(part)) lists.push([part]);
     return lists.map((l) => l.map((p) => name(p, trim)).filter((n) => n.text && !NOT_A_FILE.test(n.text)));
   };
-  const cuts = FILE_SPLIT[op] ? [...rest.matchAll(FILE_SPLIT[op])].reverse().map((m) => [rest.slice(0, m.index), rest.slice(m.index + m[0].length)]) : [];
-  // a new folder: "llamada Fotos en documentos" is Fotos in Documentos, never a folder called "en documentos"
-  if (!FILE_SPLIT[op] || (NO_PLACE_NEEDED.has(op) && !(op === 'mkdir' && cuts.length))) cuts.push([rest, null]);
+  // a word after a path ("…/ClaudeCositas causita") may be what she's called, not part of it: tried without it too
+  const rests = [rest];
+  const words = rest.split(/\s+/);
+  if (words.length > 2 && PATHLIKE.test(words.at(-2)) && !PATHLIKE.test(words.at(-1))) rests.push(words.slice(0, -1).join(' '));
+  const cuts = [];
+  for (const r of rests) {
+    const these = FILE_SPLIT[op] ? [...r.matchAll(FILE_SPLIT[op])].reverse().map((m) => [r.slice(0, m.index), r.slice(m.index + m[0].length)]) : [];
+    // a new folder: "llamada Fotos en documentos" is Fotos in Documentos, never a folder called "en documentos"
+    if (!FILE_SPLIT[op] || (NO_PLACE_NEEDED.has(op) && !(op === 'mkdir' && these.length))) these.push([r, null]);
+    cuts.push(...these);
+  }
   const splits = [];
   const seen = new Set();
   const add = (split, raw) => {
@@ -108,6 +124,7 @@ export function fileAsk(text) {
       if (dir && (right == null || place)) add({ sources: [], target: place, name: dir });
       continue;
     }
+    if (op === 'extract' && right != null && ARCHIVE_REF.test(left.trim())) add({ sources: [name(right).text], target: null });
     const found = [];
     for (const trim of [true, false]) {
       const place = right == null ? null : name(right, trim).text;
@@ -126,6 +143,15 @@ export function fileAsk(text) {
     for (const [split, raw] of found) if (!raw) add(split, false);
   }
   return splits.length ? { op, splits: splits.slice(0, 20) } : null;
+}
+
+// Said about files, but not in a way fileAsk reads ("que lo extraigas ahí mismo"): she says what she needs
+// instead of letting her answer pretend it's done.
+const ARCHIVE_VERB = /(?:^|\s)(?:extra(?:e|er|iga|igas)(?:lo|la|los|las|me|melo)?|extr[aá]e(?:lo|la|me|melo)|descompr[ií]m\w*|unzip\w*|extract\w*|compr[ií]m[aei]\w*)(?=$|[\s.,!?:;])/i;
+const FILE_VERB = /(?:^|\s)(?:mue?v[ae]\w*|mover\w*|cop(?:ia|iar|ies)\w*|borr[ae]\w*|elimin\w*|renombr\w*|pas[ae]\w*)(?=$|[\s.,!?:;])/i;
+export function fileHint(text) {
+  const t = String(text || '');
+  return ARCHIVE_VERB.test(t) || (FILE_VERB.test(t) && (FILE_NOUN.test(t) || /\.\w{2,4}\b|\b(?:zip|rar)\b/i.test(t)));
 }
 
 const OPEN_ASK = /\b(open|launch|start|run)\b|ouvr|lance|démarre|abre|abrir|inicia|ejecuta|executa|открой|запусти/i;
@@ -539,6 +565,7 @@ export class Chat {
     if (after && !VAGUE_SONG.test(after) && !HER_PICK.test(after)) return { kind: 'play', song: songOf(after.replace(/[\s.!?]+$/, '')), before: text.trim().slice(0, both.index) };
     const play = PLAY_ASK.exec(text.trim())?.[1];
     if (play && !VAGUE_SONG.test(play) && !HER_PICK.test(play)) return { kind: 'play', song: songOf(play.replace(/[\s.!?]+$/, '')) };
+    if (fileHint(text)) return { kind: 'filehint' };
     if (OPEN_ASK.test(text) && count <= 14) return { kind: 'open', text };
     return null;
   }
@@ -601,6 +628,7 @@ export class Chat {
       if (asked.then === 'open' && !runs && (await this.host.openFile(results[0].path))) lines.push(fmt(t.opened, { app: results[0].name }));
       return { line: lines.join('\n'), face: 'smug', files: results };
     }
+    if (asked.kind === 'filehint') return { line: t.fileop.hint, face: 'aside' };
     if (asked.kind === 'fileop') {
       // only the plan for now: it happens once you click its button (after)
       const plan = await this.host.planFileOp(asked.ask);
