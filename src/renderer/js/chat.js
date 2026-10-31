@@ -40,6 +40,64 @@ export function goTarget(text) {
   return name || null;
 }
 
+// "extrae descargas/juego.zip", "mueve a.png y b.png a comercio", "borra descargas/pepito.mp4" (Spanish,
+// English): which op, on which files, and every way the words could split ("viaje a roma.mp4" has an " a "
+// in it): the main process (fileops.js) keeps the first split whose files are there
+const FILE_VERBS = [
+  ['trash', /^(?:manda|env[ií]a|mueve|send|move)\s+(.+?)\s+(?:a la papelera|a la basura|to the (?:trash|bin))$/i],
+  ['extract', /^(?:extrae(?:me)?|descomprime(?:me)?|extract|unzip|decompress)\s+(.+)$/i],
+  ['compress', /^(?:comprime(?:me)?|compress|zip)\s+(.+)$/i],
+  ['move', /^(?:mueve(?:me)?|pasa(?:me)?|move)\s+(.+)$/i],
+  ['copy', /^(?:copia(?:me)?|copy)\s+(.+)$/i],
+  ['rename', /^(?:renombra(?:me)?|cambia(?:le)? el nombre (?:de|a)|rename)\s+(.+)$/i],
+  ['trash', /^(?:elimina(?:me)?|borra(?:me)?|delete|remove|trash)\s+(.+)$/i],
+  ['mkdir', /^(?:crea(?:me)?|haz(?:me)?|create|make)\s+(?:(?:una?|la|el|the|a)\s+)?(?:(?:nueva|new)\s+)?(?:carpeta|folder|directorio|directory)\s+(?:(?:llamada|nombrada|called|named)\s+)?(.+)$/i],
+];
+// what comes before the destination ("a comercio", "en documentos"), the new name, the parent folder
+const TO_PLACE = /\s(?:a|al|en|hacia|dentro de|to|into|in)\s/gi;
+const FILE_SPLIT = { move: TO_PLACE, copy: TO_PLACE, extract: TO_PLACE, compress: TO_PLACE, rename: /\s(?:a|como|por|to|as)\s/gi, mkdir: /\s(?:en|dentro de|in|inside)\s/gi };
+const NO_PLACE_NEEDED = new Set(['extract', 'compress', 'mkdir']);
+const PATHS_ONLY = new Set(['trash', 'rename', 'extract']); // no destination to tell it's about files: a real path
+const FILE_TAIL = /[\s,]*(?:por favor|porfa|please|pls|por m[ií]|for me|capri)[\s.!?¡,]*$/i;
+// "este zip", "la carpeta de", "the file": not part of the name
+const FILE_FILLER = /^(?:(?:este|esta|estos|estas|ese|esa|esos|esas|el|la|los|las|mi|mis|this|these|that|those|the|my)\s+|(?:archivos?|ficheros?|v[ií]deos?|fotos?|im[aá]gen(?:es)?|zip|rar|comprimidos?|documentos?|carpetas?|files?|folders?|photos?|pictures?|archives?)\s+(?:(?:de|del|llamad[oa]s?|called|named)\s+)?)/i;
+const NOT_A_FILE = /^(?:eso|esto|esa|esta|todo|ello|it|this|that|them|everything)$/i;
+const PATHLIKE = /[/~\\]|\.\w{1,5}$/;
+
+export function fileAsk(text) {
+  const quoted = [];
+  let s = String(text || '').trim().replace(/["“”«»]([^"“”«»]+)["“”«»]/g, (_m, q) => `\u0001${quoted.push(q) - 1}\u0001`);
+  s = s.replace(/^capri[,!:]?\s+/i, '');
+  for (let prev; prev !== s;) prev = s, s = s.replace(FILE_TAIL, '');
+  s = s.replace(/[\s.!?¡¿,]+$/, '');
+  const [op, re] = FILE_VERBS.find(([, r]) => r.test(s)) || [];
+  if (!op) return null;
+  const rest = re.exec(s)[1];
+  const name = (part) => {
+    let p = part.trim();
+    for (let prev; prev !== p;) prev = p, p = p.replace(FILE_FILLER, '').trim();
+    const q = /^\u0001(\d+)\u0001$/.exec(p);
+    return q ? { text: quoted[q[1]], quoted: true } : { text: p.replace(/\u0001(\d+)\u0001/g, (_m, i) => quoted[i]), quoted: false };
+  };
+  const sourcesOf = (part) => part.split(/\s*,\s*|\s+(?:y|e|and)\s+/i).map(name).filter((n) => n.text && !NOT_A_FILE.test(n.text));
+  const cuts = FILE_SPLIT[op] ? [...rest.matchAll(FILE_SPLIT[op])].reverse().map((m) => [rest.slice(0, m.index), rest.slice(m.index + m[0].length)]) : [];
+  if (!FILE_SPLIT[op] || NO_PLACE_NEEDED.has(op)) cuts.push([rest, null]);
+  const splits = cuts.map(([left, right]) => {
+    const place = right == null ? null : name(right).text;
+    if (right != null && !place) return null;
+    if (op === 'mkdir') {
+      const dir = name(left).text;
+      return dir ? { sources: [], target: place, name: dir } : null;
+    }
+    const sources = sourcesOf(left);
+    if (!sources.length || (PATHS_ONLY.has(op) && !sources.every((n) => n.quoted || PATHLIKE.test(n.text)))) return null;
+    const split = { sources: sources.map((n) => n.text), target: op === 'rename' ? null : place };
+    if (op === 'rename') split.name = place;
+    return split;
+  }).filter(Boolean);
+  return splits.length ? { op, splits } : null;
+}
+
 const OPEN_ASK = /\b(open|launch|start|run)\b|ouvr|lance|démarre|abre|abrir|inicia|ejecuta|executa|открой|запусти/i;
 // what to do with the music playing, said plainly (only when it's about music, or said in a few words)
 const MEDIA_ASK = [
