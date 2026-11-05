@@ -11,7 +11,9 @@ license=('LicenseRef-PolyForm-Noncommercial-1.0.0')
 depends=('electron44' 'nodejs' 'playerctl' 'wireplumber' 'libpulse' 'grim' 'glib2' 'systemd')
 makedepends=('git' 'npm')
 optdepends=('hyprland: floating over your windows, letting clicks through, sitting on them'
-            'ollama: her chat on your own PC')
+            'ollama: her chat on your own PC'
+            'slurp: picking the area of a snip she takes'
+            'wl-clipboard: that snip in your clipboard')
 provides=("$_name")
 conflicts=("$_name")
 source=("$_name::git+$url.git")

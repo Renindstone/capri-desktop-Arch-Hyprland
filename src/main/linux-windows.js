@@ -11,20 +11,45 @@ const readline = require('node:readline');
 const { spawn } = require('node:child_process');
 const hyprland = require('./hyprland');
 
-// Other AIs: a key, what gives them away in the title of the window in front, and in its class.
+// Other AIs: a key, what gives them away in the title of the window in front, in its class, and the
+// name their own site gives its pages.
 const AIS = [
-  ['chatgpt', /\bChatGPT\b/i, /chatgpt/i],
-  ['claude', /\bClaude\b/i, /claude/i],
-  ['codex', /\bCodex\b/i, /codex/i],
-  ['gemini', /\bGemini\b/i, null],
-  ['copilot', /\bCopilot\b/i, /copilot/i],
-  ['perplexity', /\bPerplexity\b/i, /perplexity/i],
-  ['deepseek', /\bDeepSeek\b/i, null],
-  ['grok', /\bGrok\b/i, null],
-  ['lechat', /\bLe Chat\b|\bMistral AI\b/i, null],
-  ['characterai', /character\.ai/i, null],
-  ['metaai', /\bMeta AI\b/i, null],
+  ['chatgpt', /\bChatGPT\b/i, /chatgpt/i, 'ChatGPT'],
+  ['claude', /\bClaude\b/i, /claude/i, 'Claude'],
+  ['codex', /\bCodex\b/i, /codex/i, 'Codex'],
+  ['gemini', /\bGemini\b/i, null, '(?:Google )?Gemini'],
+  ['copilot', /\bCopilot\b/i, /copilot/i, '(?:Microsoft )?Copilot'],
+  ['perplexity', /\bPerplexity\b/i, /perplexity/i, 'Perplexity'],
+  ['deepseek', /\bDeepSeek\b/i, null, 'DeepSeek'],
+  ['grok', /\bGrok\b/i, null, 'Grok'],
+  ['lechat', /\bLe Chat\b|\bMistral AI\b/i, null, 'Le Chat|Mistral AI'],
+  ['characterai', /character\.ai/i, null, 'character\\.ai'],
+  ['metaai', /\bMeta AI\b/i, null, 'Meta AI'],
 ];
+// In a browser, one of them is a page in a tab, closed with Ctrl+W. A browser's title is its tab's,
+// then its own ("ChatGPT — Mozilla Firefox"): their own pages have their name as a whole part of it,
+// not inside a sentence ("ChatGPT is down - YouTube" is no page of theirs). As in windows.ps1.
+const BROWSER = /firefox|brave|chrome|chromium|edge|opera|vivaldi|librewolf|waterfox|floorp|thorium|^zen/i;
+const SEP = '(?: [-|:\u2013\u2014] |: )';
+const isSite = ([, , , site], title) => new RegExp(`(?:^|${SEP})(?:${site})(?:${SEP}|$)`, 'i').test(title);
+// a page to download or install something, in her languages and German and Italian
+const DOWNLOAD = /download|t.l.charg|desc.rg|baix(?:ar|e|a|ando)|transf(?:erir|ira|ere)|herunterlad|scaric|install|setup|скач|загруз|установ/i;
+
+// what her jealousy needs of the window in front: the AIs whose own page it is, and whether it's a
+// page to download one of them
+function pagesOf(win) {
+  if (!win || !BROWSER.test(win.class || '')) return { pages: [], dl: false };
+  const title = win.title || '';
+  return { pages: AIS.filter((ai) => isSite(ai, title)).map(([key]) => key), dl: AIS.some(([, re]) => re.test(title)) && DOWNLOAD.test(title) };
+}
+
+// '' if `win` is that AI's page to close (its own, or to download it), else why not
+function closable(key, win) {
+  if (!BROWSER.test(win?.class || '')) return 'browser';
+  const ai = AIS.find(([k]) => k === key);
+  const title = win.title || '';
+  return ai && (isSite(ai, title) || (ai[1].test(title) && DOWNLOAD.test(title))) ? '' : 'page';
+}
 const CODING = /^(codium|vscodium|code|code-oss|code-url-handler)$/i;
 // A game: its program, or the folder it runs in, sits in a launcher's library (Steam, Heroic,
 // Lutris). The game is the name of its folder there; the launchers themselves aren't games.
@@ -83,6 +108,7 @@ function snapshot({ clients, active, monitors, self, pathsOf = procPaths }) {
     fg: front ? Number.parseInt(front.address, 16) : null,
     taskbar: false, // the bar is a layer, never a window in front
     ai: front ? AIS.filter(([, title, cls]) => title.test(text) || cls?.test(front.class || '')).map(([key]) => key) : [],
+    ...pagesOf(front),
     game: gameOf(front, pathsOf),
     coding: Boolean(front && CODING.test(front.class || '')),
     usb: [],
@@ -124,7 +150,7 @@ function openedAt(wins, address) {
 // 100 ms), and it only speaks when something changed. Resizing a tiled window says nothing, hence a
 // look every couple of seconds too. onOpen({ x, y }): a window opened there (her overlay's pixels).
 function startLinuxWindowWatch({ overlay, onUpdate, onOpen }) {
-  if (!hyprland.active) return { stop() {}, refresh() {} };
+  if (!hyprland.active) return { stop() {}, refresh() {}, close: async () => 'gone' };
   let last = null;
   let lastJson = '';
   let front = null;
@@ -204,7 +230,17 @@ function startLinuxWindowWatch({ overlay, onUpdate, onOpen }) {
       clearTimeout(timer);
     },
     refresh: send,
+    // Her jealousy closes the page of AI `key` (its tab, Ctrl+W) in window `id`, if it's still that
+    // page and in front: '' once done, else why not, as in windows.js.
+    async close(id, key) {
+      const active = await hyprland.json('activewindow');
+      const win = active?.pid === process.pid ? front : active; // the pointer on her isn't you leaving it
+      if (!win?.address || Number.parseInt(win.address, 16) !== Number(id)) return 'front';
+      const why = closable(key, win);
+      if (why) return why;
+      return hyprland.lua(`hl.dispatch(hl.dsp.send_shortcut({ mods = "CTRL", key = "W", window = "address:${win.address}" }))`).then(() => '', () => 'gone');
+    },
   };
 }
 
-module.exports = { snapshot, openedAt, plugFrom, usbDrives, startLinuxWindowWatch };
+module.exports = { pagesOf, closable, snapshot, openedAt, plugFrom, usbDrives, startLinuxWindowWatch };

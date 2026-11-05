@@ -20,6 +20,7 @@ const llm = require('./llm');
 const ollama = require('./ollama');
 const setup = require('./setup');
 const apps = require('./apps');
+const system = require('./system');
 const launch = require('./launch');
 const files = require('./files');
 const { createFileOps } = require('./fileops');
@@ -456,6 +457,10 @@ function rebuildTray() {
     { label: t.wander, type: 'checkbox', checked: cfg.wander, click: (item) => updateConfig({ wander: item.checked }) },
     { label: t.possess, type: 'checkbox', checked: cfg.possess, click: (item) => updateConfig({ possess: item.checked }) },
     { label: t.jealous, type: 'checkbox', checked: cfg.jealous !== false, click: (item) => updateConfig({ jealous: item.checked }) },
+    {
+      label: t.closePages, type: 'checkbox', checked: cfg.closePages !== false, enabled: cfg.jealous !== false,
+      click: (item) => updateConfig({ closePages: item.checked }),
+    },
     { label: t.pcReact, type: 'checkbox', checked: cfg.pcReact !== false, click: (item) => updateConfig({ pcReact: item.checked }) },
     ...(process.platform === 'linux' ? [{ label: t.music, type: 'checkbox', checked: cfg.music !== false, click: (item) => updateConfig({ music: item.checked }) }] : []),
     {
@@ -488,6 +493,12 @@ function rebuildTray() {
         })),
         { label: t.watchNone, type: 'radio', checked: !cfg.claude, click: () => updateConfig({ claude: false }) },
       ],
+    },
+    {
+      label: t.theme,
+      submenu: [['nightcity', 'Night City'], ['classic', t.themeClassic]].map(([theme, label]) => ({
+        label, type: 'radio', checked: cfg.theme === theme, click: () => updateConfig({ theme }),
+      })),
     },
     {
       label: t.motion,
@@ -802,6 +813,7 @@ function registerIpc() {
   ipcMain.on('claude:help', () => shell.openExternal(activeAssistant().help));
   ipcMain.handle('windows:get', () => lastWindows);
   ipcMain.handle('media:get', () => lastMedia);
+  ipcMain.handle('windows:closePage', (_e, { id, key }) => windowWatch?.close(id, key) ?? 'gone');
   // talking to her (chat.js): is Ollama there, with a model to talk with
   ipcMain.handle('chat:status', async () => {
     const cfg = config.load(true); // keys may have been edited by hand
@@ -972,6 +984,11 @@ function registerIpc() {
   ipcMain.handle('apps:media', (_e, action) => {
     volumeWatch?.ignoreFor(2000); // her doing, when you asked her: not something to react to
     return launch.media(action);
+  });
+  // your PC itself, from her chat: settings, what's left, sound, snip, windows, theme, power
+  ipcMain.handle('pc:do', (_e, req) => {
+    if (req?.action === 'volume') volumeWatch?.ignoreFor(2000); // her doing: not something to react to
+    return Promise.resolve(system.act(req, { display: targetDisplay() })).catch(() => null);
   });
   ipcMain.handle('apps:music', (_e, query) => launch.music(query).catch(() => false));
   ipcMain.handle('apps:site', (_e, address) => launch.site(address).catch(() => false));

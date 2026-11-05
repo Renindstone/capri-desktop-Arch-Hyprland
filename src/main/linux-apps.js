@@ -192,6 +192,13 @@ function pickWindow({ clients, entries, query, current }) {
 // Takes you there: Hyprland focuses that window, showing its workspace (a special one too) and
 // bringing the pointer onto it. Where you are: what the screen shows, and the last window you were in
 // before her chat took the keyboard. { ok, name, win: { x, y, w, h } } or { ok: false, why }.
+// how it's called: its app's name if it has one, else the end of its class
+function windowName(win, entries) {
+  const cls = win.class.toLowerCase();
+  const entry = entries.find((e) => e.wmClass.toLowerCase() === cls || e.fileId.toLowerCase() === cls);
+  return entry?.name || win.class.split('.').at(-1);
+}
+
 async function goTo(query) {
   if (!hyprland.active) return { ok: false, why: 'unsupported' };
   const [clients, monitors] = await Promise.all([hyprland.json('clients'), hyprland.json('monitors')]);
@@ -203,9 +210,7 @@ async function goTo(query) {
   const { win, here } = pickWindow({ clients, entries, query, current });
   if (!win) return { ok: false, why: here ? 'here' : 'none' };
   await hyprland.lua(`hl.dispatch(hl.dsp.focus({ window = "address:${win.address}" }))`);
-  const cls = win.class.toLowerCase();
-  const entry = entries.find((e) => e.wmClass.toLowerCase() === cls || e.fileId.toLowerCase() === cls);
-  return { ok: true, name: entry?.name || win.class.split('.').at(-1), win: { x: win.at[0], y: win.at[1], w: win.size[0], h: win.size[1] } };
+  return { ok: true, name: windowName(win, entries), win: { x: win.at[0], y: win.at[1], w: win.size[0], h: win.size[1] } };
 }
 
-module.exports = { pickWindow, goTo, isLauncher, parseDesktopEntry, desktopEntries, appsFrom, listApps, closeApp, media, launchEntry, grab };
+module.exports = { pickWindow, windowName, goTo, isLauncher, parseDesktopEntry, desktopEntries, appsFrom, listApps, closeApp, media, launchEntry, grab };
