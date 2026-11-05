@@ -98,7 +98,7 @@ export const LINES = {
       robloxPlay: 'Je te lance {game} sur Roblox.', robloxPage: '{game} : je t’ouvre sa page Roblox.', robloxNone: 'Je ne trouve pas « {game} » sur Roblox.',
       filesFound: 'J’ai trouvé {count} fichiers : {list}.', fileFound: 'Trouvé : {list}.', filesNone: 'Rien trouvé pour « {query} » sur ton PC.',
       showFolder: 'Voir le dossier', shot: 'Capture faite : {name} (dans Images › Screenshots).',
-      folderOpened: 'Voilà son dossier : {name}.',
+      folderOpened: 'Voilà son dossier : {name}.', couldnt: 'Ça n’a pas marché, je n’ai rien fait.',
       // ce qu'elle fait de tes fichiers quand tu le demandes (fileops.js): toujours derrière un bouton
       fileop: {
         verbs: { extract: 'Extraire', compress: 'Compresser', move: 'Déplacer', copy: 'Copier', rename: 'Renommer', trash: 'Mettre à la corbeille', mkdir: 'Créer le dossier' },
@@ -497,7 +497,7 @@ export const LINES = {
       robloxPlay: 'Starting {game} on Roblox for you.', robloxPage: '{game}: opening its Roblox page.', robloxNone: 'Can’t find “{game}” on Roblox.',
       filesFound: 'Found {count} files: {list}.', fileFound: 'Found it: {list}.', filesNone: 'Nothing for “{query}” on your PC.',
       showFolder: 'Show the folder', shot: 'Screenshot taken: {name} (in Pictures › Screenshots).',
-      folderOpened: 'Here’s its folder: {name}.',
+      folderOpened: 'Here’s its folder: {name}.', couldnt: 'That didn’t work, nothing was done.',
       // what she does with your files when you ask (fileops.js): always behind a button
       fileop: {
         verbs: { extract: 'Extract', compress: 'Compress', move: 'Move', copy: 'Copy', rename: 'Rename', trash: 'Move to the trash', mkdir: 'Create the folder' },
@@ -892,7 +892,7 @@ export const LINES = {
       robloxPlay: 'Te lanzo {game} en Roblox.', robloxPage: '{game}: te abro su página de Roblox.', robloxNone: 'No encuentro «{game}» en Roblox.',
       filesFound: 'Encontré {count} archivos: {list}.', fileFound: 'Encontrado: {list}.', filesNone: 'Nada para «{query}» en tu PC.',
       showFolder: 'Ver la carpeta', shot: 'Captura hecha: {name} (en Imágenes › Screenshots).',
-      folderOpened: 'Aquí está su carpeta: {name}.',
+      folderOpened: 'Aquí está su carpeta: {name}.', couldnt: 'No me salió, no hice nada.',
       // lo que hace con tus archivos cuando se lo pides (fileops.js): siempre detrás de un botón
       fileop: {
         verbs: { extract: 'Extraer', compress: 'Comprimir', move: 'Mover', copy: 'Copiar', rename: 'Renombrar', trash: 'Mandar a la papelera', mkdir: 'Crear la carpeta' },
@@ -1286,7 +1286,7 @@ export const LINES = {
       robloxPlay: 'Tô abrindo {game} no Roblox.', robloxPage: '{game}: abrindo a página no Roblox.', robloxNone: 'Não achei “{game}” no Roblox.',
       filesFound: 'Achei {count} arquivos: {list}.', fileFound: 'Achei: {list}.', filesNone: 'Nada pra “{query}” no seu PC.',
       showFolder: 'Ver a pasta', shot: 'Captura feita: {name} (em Imagens › Screenshots).',
-      folderOpened: 'Aqui tá a pasta: {name}.',
+      folderOpened: 'Aqui tá a pasta: {name}.', couldnt: 'Não deu certo, não fiz nada.',
       // o que ela faz com seus arquivos quando você pede (fileops.js): sempre atrás de um botão
       fileop: {
         verbs: { extract: 'Extrair', compress: 'Compactar', move: 'Mover', copy: 'Copiar', rename: 'Renomear', trash: 'Mandar pra lixeira', mkdir: 'Criar a pasta' },
@@ -1680,7 +1680,7 @@ export const LINES = {
       robloxPlay: 'Запускаю {game} в Roblox.', robloxPage: '{game}: открываю страницу в Roblox.', robloxNone: 'Не нахожу «{game}» в Roblox.',
       filesFound: 'Нашла файлов: {count}. {list}.', fileFound: 'Нашла: {list}.', filesNone: 'По запросу «{query}» на твоём ПК ничего.',
       showFolder: 'Показать папку', shot: 'Скриншот готов: {name} (в Изображения › Screenshots).',
-      folderOpened: 'Вот его папка: {name}.',
+      folderOpened: 'Вот его папка: {name}.', couldnt: 'Не вышло, я ничего не сделала.',
       // что она делает с твоими файлами, когда просишь (fileops.js): всегда через кнопку
       fileop: {
         verbs: { extract: 'Распаковать', compress: 'Запаковать', move: 'Переместить', copy: 'Скопировать', rename: 'Переименовать', trash: 'В корзину', mkdir: 'Создать папку' },

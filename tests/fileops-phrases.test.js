@@ -62,3 +62,11 @@ test('about files but not understood: she says so instead of nothing', async () 
   for (const t of ['me refiero a q lo extraigas ahi mismo nomas :v', 'descomprímelo porfa', 'mueve el archivo ese a otra carpeta']) assert.equal(fileHint(t), true, t);
   for (const t of ['cuéntame un chiste', 'mueve la reunión al viernes', 'el 3agentes.zip', 'borra eso de tu memoria']) assert.equal(fileHint(t), false, t);
 });
+
+test('as they said it on 2026-11-05: "la ruta", and the verb at the end', async () => {
+  for (const t of ['extrae el zip que esta en la ruta $HOME/Documentos/ClaudeCositas/', '$HOME/Documentos/ClaudeCositas/3agentes.zip extrae']) {
+    const p = await said(t);
+    assert.deepEqual(p?.names, ZIP, `${t} → ${JSON.stringify(p)}`);
+  }
+  assert.equal(await said('documentos/x.png hola'), null);
+});

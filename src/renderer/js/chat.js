@@ -24,6 +24,9 @@ const IN_LANGUAGE = {
 };
 const STAY_MS = 10 * 60 * 1000; // no wandering off mid-conversation
 const LOADING_AFTER_MS = 5000;
+// what's left to the model when her system has nothing to say: an app by a name she doesn't know, a
+// reminder that doesn't say when, closing an app, a window she can't take you to
+const MODEL_ANSWERS = new Set(['open', 'remind', 'close', 'goto']);
 const CLOSE_TAG = /\[\[\s*close\s*:?\s*([^\]]*)\]\]/i; // [[close: AM Music]] at the end of her answer
 // "close", "shut down", "ferme", "quitte", "cierra", "fecha", "закрой"... in any of her languages
 const CLOSE_ASK = /\b(close|shut|quit|kill|exit)|ferm|quitt|coupe|arr[êe]t|cierr|cerra|fech|закр|выключ/i;
@@ -67,7 +70,7 @@ const SAME_PLACE = /\s+(?:(?:en|in)\s+)?(?:(?:la\s+)?misma\s+carpeta|(?:the\s+)?
 // "el zip que hay en <carpeta>": the folder is what to look in
 const ARCHIVE_REF = /^(?:(?:el|un|the|a|this|ese|este|mi)\s+)?(?:zip|rar|7z|archivo|comprimido|fichero|file|archive)(?:\s+(?:que\s+(?:hay|est[aá]|tengo)|that'?s|which\s+is))?$/i;
 // "este zip", "la carpeta de", "the file": not part of the name
-const FILE_FILLER = /^(?:(?:este|esta|estos|estas|ese|esa|esos|esas|el|la|los|las|mi|mis|this|these|that|those|the|my)\s+|(?:archivos?|ficheros?|v[ií]deos?|fotos?|im[aá]gen(?:es)?|zip|rar|comprimidos?|documentos?|carpetas?|files?|folders?|photos?|pictures?|archives?)\s+(?:(?:de|del|llamad[oa]s?|called|named)\s+)?)/i;
+const FILE_FILLER = /^(?:(?:este|esta|estos|estas|ese|esa|esos|esas|el|la|los|las|mi|mis|this|these|that|those|the|my)\s+|(?:archivos?|ficheros?|v[ií]deos?|fotos?|im[aá]gen(?:es)?|zip|rar|comprimidos?|documentos?|carpetas?|rutas?|files?|folders?|paths?|photos?|pictures?|archives?)\s+(?:(?:de|del|llamad[oa]s?|called|named)\s+)?)/i;
 const NOT_A_FILE = /^(?:eso|esto|esa|esta|todo|ello|it|this|that|them|everything)$/i;
 const PATHLIKE = /[/~\\]|\.\w{1,5}$/;
 // when no name looks like a path ("comprime fotos y videos"), what says it's about files at all
@@ -81,6 +84,9 @@ export function fileAsk(text) {
   s = s.replace(/^[¿¡]?\s*(?:(?:oye|hey)\s+)?capri[,!:]?\s+/i, '').replace(/^[¿¡]\s*/, '').replace(ASKING, '');
   for (let prev; prev !== s;) prev = s, s = s.replace(FILE_TAIL, '');
   s = s.replace(/[\s.!?¡¿,]+$/, '');
+  // "/home/x.rar extrae": the verb last
+  const verbLast = /^(.*[/~.].*)\s+(\S+)$/.exec(s);
+  if (verbLast && !FILE_VERBS.some(([, r]) => r.test(s))) s = `${verbLast[2]} ${verbLast[1]}`;
   const [op, re] = FILE_VERBS.find(([, r]) => r.test(s)) || [];
   if (!op) return null;
   let rest = re.exec(s)[1];
@@ -489,8 +495,16 @@ export class Chat {
     // line about it comes under her answer (Claude Code, answering her chat, does things its own way)
     const asked = this.agent ? null : this.asked(text);
     if (asked?.kind === 'look') return this.sendLook(text, id);
-    const early = asked && asked.kind !== 'close' ? this.doNow(asked) : null;
+    const early = asked && asked.kind !== 'close' ? this.doNow(asked).catch(() => null) : null;
     this.bond?.heard(text); // "sorry": she lets it go
+    // Done by her system: she says what really happened. The model can't know, and small ones make it
+    // up ("I can't find it" over the button of a file that was found), so it only answers the rest.
+    const done = early && (await early);
+    if (this.turn !== id) {
+      if (this.history.at(-1)?.content === text) this.history.pop(); // closed meanwhile
+      return;
+    }
+    if (done || (asked && !MODEL_ANSWERS.has(asked.kind))) return this.sayDone(done, asked, text);
     await Promise.race([this.appsReady, new Promise((r) => setTimeout(r, 1500))]);
     // what she greeted you with (angry, sulking…), in the conversation before your message, so her
     // answer carries on from it (after another answer of hers: added to that one, never two in a row)
@@ -540,6 +554,21 @@ export class Chat {
     this.panel.setChatBusy(false);
     if (!this.agent) this.after(res.text, answer, asked, early, text);
     this.listApps(); // fresh for the next message
+  }
+
+  // What her system did, in her words, on its own: and that's what she remembers saying.
+  async sayDone(done, asked, text) {
+    const said = done || { line: this.t.couldnt, face: 'aside' }; // it tried, and it didn't work
+    this.turn = 0;
+    this.panel.setChatBusy(false);
+    this.spoken = null;
+    if (said.offer) {
+      this.spoken = fmt(this.t.openIt, { app: this.nameOf(said.offer) });
+      this.panel.stream(this.spoken, { done: true });
+    }
+    await this.after('', '…', asked, Promise.resolve(said), text);
+    if (this.spoken) this.remember({ role: 'assistant', content: this.spoken });
+    this.listApps();
   }
 
   // "Look at my screen" in her chat: she looks (asking you first, the first time) and answers here,
@@ -995,6 +1024,7 @@ export class Chat {
   // her answer, with a line of what she did under it
   addLine(answer, line, face = null) {
     if (!this.open || this.turn) return;
+    this.spoken = line;
     this.panel.stream(answer === '…' ? line : `${answer}\n${line}`, { done: true }); // nothing but a tag: just the line
     if (face) this.panel.setFace(face);
   }
@@ -1020,18 +1050,21 @@ export class Chat {
       this.panel.setActions([]);
       if (id === 'no') return;
       const res = await this.host.runFileOp(plan.id, Number(id));
+      const say = (line, face) => {
+        this.addLine(answer, line, face);
+        this.remember({ role: 'assistant', content: line });
+      };
       if (!res?.ok) {
-        const why = res?.error === 'failed' ? fmt(f.failed, { why: res.message }) : fmt(f.errors[res?.error] || f.errors.unclear, { name: res?.name });
-        this.addLine(answer, why, 'aside');
+        say(res?.error === 'failed' ? fmt(f.failed, { why: res.message }) : fmt(f.errors[res?.error] || f.errors.unclear, { name: res?.name }), 'aside');
         return;
       }
       this.zap();
       this.voice.play('tick');
       if (!res.path) {
-        this.addLine(answer, fmt(f.trashed, { what }), 'smug');
+        say(fmt(f.trashed, { what }), 'smug');
         return;
       }
-      this.addLine(answer, fmt(f.done, { path: res.shown }), 'laugh');
+      say(fmt(f.done, { path: res.shown }), 'laugh');
       this.panel.setActions([{ id: 'folder', label: this.t.showFolder, primary: true }], () => this.host.openFile(res.path, true));
     });
   }
@@ -1171,8 +1204,7 @@ export class Chat {
       const soon = this.reminders.upcoming.slice(0, 6);
       if (soon.length) lines.push(`Reminders you're keeping for them: ${soon.map((r) => `${clock(r.at, this.brain.lang)}${r.text ? ` (${r.text})` : ''}`).join('; ')}.`);
     }
-    lines.push('Your system also searches the user\'s files when they ask you to find one, searches the web when they ask, takes screenshots, starts Roblox games by name, sets the volume, starts timers, says what\'s left of the disk, memory and battery, moves windows, opens settings, and locks, suspends or shuts down the PC behind a button: what it did shows under your answer, so never make up file names or results.');
-    lines.push('When the user asks, with the path, to extract, compress, move, copy, rename, delete (to the trash) a file or folder, or to create a folder, your system does it: a line under your answer shows what it will do, with a button to confirm, so say in a few words that you will and never say it is already done.');
+    lines.push('Your system handles clear requests by itself and answers them without you: finding, extracting, compressing, moving, copying, renaming or deleting files, searches on the web, screenshots, Roblox games, the volume, timers, what\'s left of the disk, memory and battery, windows, settings, locking or shutting down the PC. If a message asking for one of those reaches you, it was not understood and NOTHING was done: never say you did it or will do it, never ask them to confirm it, never make up file names or results. Say in a few words that it didn\'t work and that they should say it plainly with the full path, like: extrae documentos/cosa.zip');
     lines.push('Apart from that, you can\'t see the user\'s screen, and you can\'t touch anything else on their PC: if asked, say plainly that you can\'t, in character, and don\'t pretend to.');
     return lines;
   }
