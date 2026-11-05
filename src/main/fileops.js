@@ -186,11 +186,13 @@ function createFileOps({ home, known = {}, trash, archiver = 'bsdtar', now = Dat
     if (!ask || !OPS.has(ask.op) || !Array.isArray(ask.splits)) return refuse('unclear');
     let first = null;
     let trimmed = null; // what didn't work, said about your words without "este video" and the like
+    let found = null; // why not, about something that's there: says more than "can't find" about another reading
     for (const split of ask.splits) {
       const res = await build(ask.op, split);
       if (res.error) {
         first ??= res;
         if (!split.raw) trimmed ??= res;
+        if (res.error !== 'missing') found ??= res;
         continue;
       }
       const id = randomUUID();
@@ -203,7 +205,7 @@ function createFileOps({ home, known = {}, trash, archiver = 'bsdtar', now = Dat
         choices: PLACED.has(res.op) ? res.targets.map(shown) : [],
       };
     }
-    return trimmed || first || refuse('unclear');
+    return found || trimmed || first || refuse('unclear');
   }
 
   // The plan you clicked, once: everything checked again (something may have changed since), then done.

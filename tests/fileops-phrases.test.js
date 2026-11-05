@@ -70,3 +70,9 @@ test('as they said it on 2026-11-05: "la ruta", and the verb at the end', async 
   }
   assert.equal(await said('documentos/x.png hola'), null);
 });
+
+test('a refusal about something found beats "not found" about a reading of your words', async () => {
+  const p = await said('Extrae el zip que hay en $HOME/Documentos/Nada causita');
+  assert.equal(p.error, 'noArchive');
+  assert.match(p.name, /Documentos\/Nada$/);
+});
