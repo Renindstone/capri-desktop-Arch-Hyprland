@@ -105,7 +105,7 @@ async function boot() {
   const mission = new Mission();
   const brain = new Brain({ capri, panel, voice, host, mission, lang: config.lang, assistant: config.assistant });
 
-  // Click-through everywhere except on her body, the panel and her biochip.
+  // Click-through everywhere except on her body, the panel, her biochip and her mask.
   let interactive = false;
   let mouse = null;
   const setInteractive = (on) => {
@@ -114,13 +114,14 @@ async function boot() {
     host.setInteractive(on);
   };
   const onChip = () => Boolean(chip.visible && mouse && chip.contains(mouse.x, mouse.y, 0));
+  const onMask = () => Boolean(mask.visible && mouse && mask.contains(mouse.x, mouse.y, 0));
   const refreshHit = () => {
     if (capri.dragging) return setInteractive(true);
     if (!mouse) return setInteractive(false);
     const r = panel.rect();
     const onPanel = r && mouse.x >= r.left && mouse.x <= r.right && mouse.y >= r.top && mouse.y <= r.bottom;
     document.body.style.cursor = onChip() ? 'pointer' : '';
-    return setInteractive(Boolean(onPanel || capri.hit(mouse.x, mouse.y) || onChip()));
+    return setInteractive(Boolean(onPanel || capri.hit(mouse.x, mouse.y) || onChip() || onMask()));
   };
   // Her biochip: her eyes on it follow the pointer over it, and she comes out when you click it
   // (only then, so the pointer passing through that corner doesn't call her back).
@@ -176,6 +177,7 @@ async function boot() {
     if (!interactive && now - lastMove > WATCH_MS) {
       mouse = { x: at.x, y: at.y };
       refreshHit();
+      hoverChip(); // on Hyprland nothing else tells her the pointer came over her mask
     }
     if (!before?.inside || (at.x === before.x && at.y === before.y)) return;
     if (now - lastMove < WATCH_MS * 1.5 || now - rearmedAt < 20000) return;
